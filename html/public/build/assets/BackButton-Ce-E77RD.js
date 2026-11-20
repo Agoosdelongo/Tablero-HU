@@ -1,0 +1,1 @@
+import{j as r,B as o}from"./app-d9jUEx8T.js";import{a as e}from"./route-DQT8tQqP.js";import{I as n}from"./IconChevronLeft-DId9VmF9.js";function m({route:t}){return r.jsx(o,{leftSection:r.jsx(n,{size:14}),radius:"xl",variant:"transparent",size:"sm",onClick:()=>e(t),children:"Volver"})}export{m as B};

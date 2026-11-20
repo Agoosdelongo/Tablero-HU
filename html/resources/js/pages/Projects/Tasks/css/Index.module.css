@@ -1,0 +1,29 @@
+:global(.kanban-view) {
+    .viewport {
+        display: flex;
+        gap: rem(15px);
+        width: max-content;          /* crece con las columnas: el padding derecho queda al final */
+        min-width: 100%;             /* si hay pocas columnas, ocupa todo el ancho igual */
+        padding-left: var(--mantine-spacing-md);
+        padding-right: var(--mantine-spacing-md);
+        height: calc(100dvh - 40px);   /* casi toda la pantalla; 40px ≈ aire arriba + scroll horizontal */
+        box-sizing: border-box;
+
+        @media (min-width: 768px) {
+            padding-left: 4rem;
+            padding-right: 4rem;
+        }
+    }
+
+    overflow-x: auto;
+    overflow-y: hidden;
+    margin-left: calc(var(--mantine-spacing-md) * -1);
+    margin-right: calc(var(--mantine-spacing-md) * -1);
+    margin-bottom: calc(var(--mantine-spacing-md) * -1);
+
+    @media (min-width: 768px) {
+        margin-left: -4rem;
+        margin-right: -4rem;
+        margin-bottom: -4rem;
+    }
+}

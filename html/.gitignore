@@ -1,0 +1,8 @@
+.env
+.env.*
+/vendor/
+/node_modules/
+/database/database.sqlite
+/storage/logs/*.log
+/public/hot
+/public/storage

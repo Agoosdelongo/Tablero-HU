@@ -1,0 +1,121 @@
+.row {
+    margin-bottom: var(--mantine-spacing-sm);
+}
+
+.group {
+    align-items: center;
+    background-color: light-dark(var(--mantine-color-white), var(--mantine-color-dark-6));
+    border-radius: var(--mantine-radius-md);
+    border: rem(1px) solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-6));
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: var(--mantine-spacing-sm);
+    padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
+    transition: 0.3s ease border, 0.3s ease color;
+
+    @mixin hover {
+        color: light-dark(var(--mantine-color-gray-9), var(--mantine-color-white));
+        border: rem(1px) solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
+
+        .actions {
+            opacity: 0.5;
+        }
+
+        .dragHandle {
+            opacity: 0.6;
+        }
+    }
+}
+
+.actions {
+    opacity: 0;
+    transition: 0.3s ease opacity;
+}
+
+.itemDragging {}
+
+.dragHandle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: light-dark(var(--mantine-color-gray-6), var(--mantine-color-dark-1));
+    opacity: 0.2;
+    transition: 0.3s ease opacity;
+}
+
+:global(.kanban-view) {
+    .row {
+        max-width: rem(260px);
+        min-width: rem(260px);
+        max-height: 100%;
+        overflow-y: hidden;        /* bloqueado: la rueda mueve la página */
+        overflow-x: hidden;
+        padding-right: rem(2px);
+        padding-bottom: rem(28px); /* aire al final para el desvanecido */
+        /* desvanecido suave abajo en lugar de un corte seco */
+        mask-image: linear-gradient(to bottom, #000 calc(100% - 32px), transparent);
+    }
+
+    .group {
+        margin-bottom: var(--mantine-spacing-xs);
+        padding: var(--mantine-spacing-sm) var(--mantine-spacing-xs);
+        position: sticky;
+        top: 0;
+        z-index: 2;
+    }
+
+    .placeholder {
+        min-height: 10px;
+    }
+    .row::-webkit-scrollbar {
+        width: rem(6px);
+    }
+
+    .row::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .row::-webkit-scrollbar-thumb {
+        background-color: transparent;
+        border-radius: rem(10px);
+    }
+
+    .row:hover::-webkit-scrollbar-thumb {
+        background-color: light-dark(
+            alpha(var(--mantine-color-hospitalPrimary-7), 0.4),
+            rgba(255, 255, 255, 0.25)
+        );
+    }
+
+    .row::-webkit-scrollbar-thumb:hover {
+        background-color: light-dark(
+            var(--mantine-color-hospitalPrimary-7),
+            rgba(255, 255, 255, 0.45)
+        );
+    }
+
+    .row::-webkit-scrollbar-button {
+        display: none;
+    }
+
+    /* Firefox */
+    @supports not selector(::-webkit-scrollbar) {
+        .row {
+            scrollbar-width: thin;
+            scrollbar-color: transparent transparent;
+        }
+
+        .row:hover {
+            scrollbar-color: light-dark(
+                alpha(var(--mantine-color-hospitalPrimary-7), 0.4),
+                rgba(255, 255, 255, 0.25)
+            ) transparent;
+        }
+    }
+}
+:global(.kanban-view.board-pinned) {
+    .row {
+        overflow-y: auto;          /* tablero completo en pantalla: ahora sí scroll por columna */
+    }
+}
