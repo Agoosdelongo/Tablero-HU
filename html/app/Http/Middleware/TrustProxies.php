@@ -12,7 +12,8 @@ class TrustProxies extends Middleware
      *
      * @var array<int, string>|string|null
      */
-    protected $proxies;
+    // Confía en los encabezados X-Forwarded-* del proxy inverso HTTPS en producción.
+    protected $proxies = '*';
 
     /**
      * The headers that should be used to detect proxies.

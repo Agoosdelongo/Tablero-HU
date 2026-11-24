@@ -1,12 +1,20 @@
 import { useState } from 'react';
 import { ActionIcon, Text, TextInput, Group } from '@mantine/core';
 import { IconPencil } from '@tabler/icons-react';
+import { usePage } from '@inertiajs/react';
 import axios from 'axios';
 import useTasksStore from '@/hooks/store/useTasksStore';
 
+// Muestra el nombre de la tarea y permite editarlo rápido al admin creador.
 export default function EditableTaskName({
   task,
 }) {
+  const { auth: { user } } = usePage().props;
+  const isAdmin = Boolean(user?.is_admin || user?.is_super_admin);
+  const canEditName =
+    isAdmin &&
+    (task.created_by_user_id == null || Number(task.created_by_user_id) === Number(user?.id));
+
   const [editing, setEditing] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [value, setValue] = useState(task.name);
@@ -87,7 +95,7 @@ export default function EditableTaskName({
         {task.name}
       </Text>
 
-      {hovered && (
+      {canEditName && hovered && (
         <ActionIcon
           size="xs"
           variant="subtle"

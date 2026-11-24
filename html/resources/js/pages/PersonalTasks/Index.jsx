@@ -1,3 +1,4 @@
+// Pantalla de agenda de tareas personales con recordatorios y sincronización a Google Calendar.
 import Layout from '@/layouts/MainLayout';
 import { currentUrl, currentUrlParams, reloadWithQuery, reloadWithoutQueryParams } from '@/utils/route';
 import { router, usePage } from '@inertiajs/react';

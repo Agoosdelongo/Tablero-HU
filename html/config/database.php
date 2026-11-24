@@ -15,7 +15,10 @@ return [
     |
     */
 
-    'default' => file_exists(database_path('database.sqlite')) ? 'sqlite' : env('DB_CONNECTION', 'mysql'),
+    // En producción respeta siempre DB_CONNECTION; en local usa SQLite si existe el archivo.
+    'default' => env('APP_ENV', 'production') !== 'production' && file_exists(database_path('database.sqlite'))
+        ? 'sqlite'
+        : env('DB_CONNECTION', 'mysql'),
 
     /*
     |--------------------------------------------------------------------------

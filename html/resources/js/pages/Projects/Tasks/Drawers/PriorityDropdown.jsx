@@ -11,7 +11,8 @@ import {
 } from '@mantine/core';
 import { IconX } from '@tabler/icons-react';
 
-export default function PriorityDropdown({ value, onChange, ...props }) {
+export default function PriorityDropdown({ value, onChange, disabled = false, ...props }) {
+  const isDisabled = disabled || !can('edit task');
   const combobox = useCombobox({
     onDropdownClose: () => combobox.resetSelectedOption(),
   });
@@ -20,12 +21,14 @@ export default function PriorityDropdown({ value, onChange, ...props }) {
   const selectedPriority = priorities?.find((p) => p.id === value);
 
   const handleSelect = (val) => {
+    if (isDisabled) return;
     onChange(val ? Number(val) : null);
     combobox.closeDropdown();
   };
 
   const handleClear = (e) => {
     e.stopPropagation();
+    if (isDisabled) return;
     onChange(null);
   };
 
@@ -36,16 +39,17 @@ export default function PriorityDropdown({ value, onChange, ...props }) {
         store={combobox}
         onOptionSubmit={handleSelect}
         withinPortal={false}
-        disabled={!can('edit task')}
+        disabled={isDisabled}
       >
         <Combobox.Target>
           <InputBase
             component='button'
             type='button'
-            pointer
-            onClick={() => combobox.toggleDropdown()}
+            pointer={!isDisabled}
+            disabled={isDisabled}
+            onClick={() => !isDisabled && combobox.toggleDropdown()}
             rightSection={
-              selectedPriority && can('edit task') ? (
+              selectedPriority && !isDisabled ? (
                 <IconX
                   size={14}
                   style={{ cursor: 'pointer' }}

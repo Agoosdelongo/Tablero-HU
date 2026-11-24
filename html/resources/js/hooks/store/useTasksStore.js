@@ -136,6 +136,14 @@ const useTasksStore = create((set, get) => ({
                 state.tasks[task.group_id][index][relatedProperty] = options;
             }
 
+            // Mantener lista de personas asignadas sincronizada con assigned_to_user
+            if (property === 'assigned_user_ids') {
+                const assignedList = options ?? [];
+                state.tasks[task.group_id][index].assignees = assignedList;
+                state.tasks[task.group_id][index].assigned_to_user_id = assignedList[0]?.id ?? null;
+                state.tasks[task.group_id][index].assigned_to_user = assignedList[0] ?? null;
+            }
+
             // Mantener objetos completos para labels y suscriptores
             if (property === 'labels' || property === 'subscribed_users') {
                 state.tasks[task.group_id][index][property] = options ?? [];
@@ -144,7 +152,7 @@ const useTasksStore = create((set, get) => ({
       }));
     } catch (e) {
       console.error(e);
-      alert("Failed to save task property change");
+      alert(e.response?.data?.message || "Failed to save task property change");
     }
   },
 

@@ -26,6 +26,8 @@ class UpdateTaskRequest extends FormRequest
             'name' => ['string:255'],
             'group_id' => ['exists:task_groups,id'],
             'assigned_to_user_id' => ['nullable', 'exists:users,id'],
+            'assigned_user_ids' => ['array'],
+            'assigned_user_ids.*' => ['integer', 'exists:users,id'],
             'description' => ['nullable'],
             'issue_type' => ['sometimes', 'in:Epica,Historia,Tarea,Subtarea'],
             'priority_id' => ['nullable', 'exists:task_priorities,id'],

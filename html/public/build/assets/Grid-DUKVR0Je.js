@@ -1,0 +1,1 @@
+import{j as t}from"./app-Cc4pSYNg.js";function r({periodColumns:s,config:a}){return t.jsx("div",{className:"timeline-grid",children:s.map(i=>t.jsx("div",{className:"timeline-grid-col",style:{width:i.days*a.dayWidth}},i.start.format("YYYY-MM-DD")))})}export{r as default};

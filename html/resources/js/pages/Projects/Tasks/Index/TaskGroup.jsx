@@ -1,4 +1,5 @@
 import useTaskDrawerStore from "@/hooks/store/useTaskDrawerStore";
+import { usePage } from "@inertiajs/react";
 import { Draggable, Droppable } from "@hello-pangea/dnd";
 import { ActionIcon, Flex, Group, Text, Tooltip, rem } from "@mantine/core";
 import { IconGripVertical, IconPlus } from "@tabler/icons-react";
@@ -9,6 +10,8 @@ import translateGroupName from "@/utils/translateGroupName";
 
 export default function TaskGroup({ group, tasks, ...props }) {
   const { openCreateTask } = useTaskDrawerStore();
+  const { auth: { user } } = usePage().props;
+  const isAdmin = Boolean(user?.is_admin || user?.is_super_admin);
 
   return (
     <Draggable draggableId={group.id.toString()} {...props}>
@@ -37,7 +40,7 @@ export default function TaskGroup({ group, tasks, ...props }) {
               </Text>
               <TaskGroupActions group={group} className={classes.actions} />
             </Group>
-            {!route().params.archived && can("create task") && (
+            {!route().params.archived && isAdmin && can("create task") && (
               <Tooltip label="Add task" openDelay={1000} withArrow>
                 <ActionIcon
                   variant="filled"

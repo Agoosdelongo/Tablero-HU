@@ -24,7 +24,7 @@ class WhereHasFilter extends Filter
     public function apply(Builder $query): Builder
     {
         return $query->whereHas($this->relation, function (Builder $query) {
-            $query->whereIn('id', $this->values);
+            $query->whereIn($query->getModel()->getQualifiedKeyName(), $this->values);
         });
     }
 }

@@ -4,7 +4,7 @@ import { isOverdue, isDueSoon } from '@/utils/task';
 import dayjs from 'dayjs';
 import { getInitials } from '@/utils/user';
 import { Draggable } from '@hello-pangea/dnd';
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { Avatar, Group, Text, Tooltip, rem, useComputedColorScheme } from '@mantine/core';
 import TaskActions from '../TaskActions';
 import classes from './css/TaskCard.module.css';
@@ -13,6 +13,8 @@ import { IconPlus } from '@tabler/icons-react';
 
 export default function TaskCard({ task, index }) {
   const { openEditTask, openCreateTask } = useTaskDrawerStore();
+  const { auth: { user } } = usePage().props;
+  const isAdmin = Boolean(user?.is_admin || user?.is_super_admin);
   const computedColorScheme = useComputedColorScheme();
   console.log(task);
   return (
@@ -83,28 +85,50 @@ export default function TaskCard({ task, index }) {
                   />
                 ))}
               </Group>
-              {task.assigned_to_user && (
-                <Tooltip
-                  label={task.assigned_to_user.name}
-                  openDelay={1000}
-                  withArrow
-                >
-                  <Link
-                    href={route('users.edit', task.assigned_to_user.id)}
-                    style={{ textDecoration: 'none' }}
-                  >
-                    <Avatar
-                      src={task.assigned_to_user.avatar}
-                      radius='xl'
-                      size={20}
-                      color={computedColorScheme === 'light' ? 'white' : 'blue'}
-                    >
-                      {getInitials(task.assigned_to_user.name)}
-                    </Avatar>
-                  </Link>
-                </Tooltip>
-              )}
-              {task.issue_type !== 'Subtarea' && (
+              {(() => {
+                const assignedUsers =
+                  Array.isArray(task.assignees) && task.assignees.length > 0
+                    ? task.assignees
+                    : task.assigned_to_user
+                      ? [task.assigned_to_user]
+                      : [];
+
+                if (!assignedUsers.length) return null;
+
+                return (
+                  <Avatar.Group spacing='xs'>
+                    {assignedUsers.slice(0, 3).map(assigned => (
+                      <Tooltip
+                        key={assigned.id}
+                        label={assigned.name}
+                        openDelay={400}
+                        withArrow
+                      >
+                        <Avatar
+                          src={assigned.avatar}
+                          radius='xl'
+                          size={20}
+                          color={computedColorScheme === 'light' ? 'white' : 'blue'}
+                        >
+                          {getInitials(assigned.name)}
+                        </Avatar>
+                      </Tooltip>
+                    ))}
+                    {assignedUsers.length > 3 && (
+                      <Tooltip
+                        label={assignedUsers.slice(3).map(u => u.name).join(', ')}
+                        openDelay={400}
+                        withArrow
+                      >
+                        <Avatar radius='xl' size={20}>
+                          +{assignedUsers.length - 3}
+                        </Avatar>
+                      </Tooltip>
+                    )}
+                  </Avatar.Group>
+                );
+              })()}
+              {isAdmin && task.issue_type !== 'Subtarea' && (
                 <ActionIcon
                   variant='subtle'
                   size='sm'

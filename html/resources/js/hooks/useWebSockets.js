@@ -16,6 +16,10 @@ export default function useWebSockets() {
   } = useTaskGroupsStore();
 
   const initUserWebSocket = () => {
+    if (!window.Echo || !user?.id) {
+      return () => {};
+    }
+
     const channel = window.Echo.private(`App.Models.User.${user.id}`);
 
     channel.notification((notification) => {
@@ -28,10 +32,14 @@ export default function useWebSockets() {
       });
     });
 
-    return () => window.Echo.leave(`App.Models.User.${user.id}`);
+    return () => window.Echo?.leave(`App.Models.User.${user.id}`);
   };
 
   const initProjectWebSocket = (project) => {
+    if (!window.Echo || !project?.id) {
+      return () => {};
+    }
+
     window.Echo.private(`App.Models.Project.${project.id}`)
       .listen('Task\\TaskCreated', (e) => addTaskLocally(e.task))
       .listen('Task\\TaskUpdated', (e) => updateTaskLocally(e.taskId, e.property, e.value, e.relatedData))
@@ -48,14 +56,18 @@ export default function useWebSockets() {
       .listen('TaskGroup\\TaskGroupRestored', (e) => restoreTaskGroupLocally(e.taskGroup))
       .listen('TaskGroup\\TaskGroupOrderChanged', (e) => reorderTaskGroupLocally(e.taskGroupIds))
 
-    return () => window.Echo.leave(`App.Models.Project.${project.id}`);
+    return () => window.Echo?.leave(`App.Models.Project.${project.id}`);
   };
 
   const initTaskWebSocket = (task) => {
+    if (!window.Echo || !task?.id) {
+      return () => {};
+    }
+
     window.Echo.private(`App.Models.Task.${task.id}`)
       .listen('Task\\CommentCreated', (e) => addCommentLocally(e.comment));
 
-    return () => window.Echo.leave(`App.Models.Task.${task.id}`);
+    return () => window.Echo?.leave(`App.Models.Task.${task.id}`);
   };
 
   return { initUserWebSocket, initProjectWebSocket, initTaskWebSocket };

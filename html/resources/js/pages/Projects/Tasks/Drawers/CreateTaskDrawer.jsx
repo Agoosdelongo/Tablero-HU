@@ -16,11 +16,13 @@ import {
   rem,
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
+import dayjs from 'dayjs';
 import { useEffect, useRef } from 'react';
 import LabelsDropdown from './LabelsDropdown';
 import PriorityDropdown from './PriorityDropdown';
 import classes from './css/TaskDrawer.module.css';
 
+// Panel lateral para crear una nueva actividad en un proyecto.
 export function CreateTaskDrawer() {
   const { create, closeCreateTask } = useTaskDrawerStore();
   const {
@@ -43,15 +45,18 @@ export function CreateTaskDrawer() {
     return options.length === 1 ? options[0] : null;
   })();
 
+  const isAdmin = Boolean(user?.is_admin || user?.is_super_admin);
+
   const initial = {
     group_id: create.group_id ? create.group_id.toString() : '',
     assigned_to_user_id: '',
+    assigned_user_ids: [],
     name: '',
     description: '',
     issue_type: create.issue_type || '',
     parent_task_id: create.parent_task_id,
     priority_id: null,
-    start_on: '',
+    start_on: new Date(),
     due_on: '',
     subscribed_users: [user.id.toString()],
     labels: [],
@@ -72,12 +77,13 @@ export function CreateTaskDrawer() {
       form.setData({
         group_id: create.group_id ? create.group_id.toString() : '',
         assigned_to_user_id: '',
+        assigned_user_ids: [],
         name: '',
         description: '',
         issue_type: resolvedIssueType,
         parent_task_id: create.parent_task_id,
         priority_id: null,
-        start_on: '',
+        start_on: new Date(),
         due_on: '',
         subscribed_users: [user.id.toString()],
         labels: [],
@@ -87,12 +93,14 @@ export function CreateTaskDrawer() {
     }
   }, [create.opened, create.group_id, create.issue_type, create.parent_task_id]);
 
+  const isCurrentUserAssignee = (form.data.assigned_user_ids || []).includes(user.id.toString());
+  const canSetDueDate = isAdmin || isCurrentUserAssignee;
+
   const closeDrawer = (force = false) => {
     const isEmpty = (
       form.data.name === '' &&
       form.data.description === '' &&
-      form.data.assigned_to_user_id === '' &&
-      form.data.start_on === '' &&
+      (form.data.assigned_user_ids || []).length === 0 &&
       form.data.due_on === '' &&
       form.data.labels.length === 0 &&
       form.data.priority_id === null &&
@@ -170,6 +178,12 @@ export function CreateTaskDrawer() {
               ...data,
               parent_task_id: create.parent_task_id,
               issue_type: forcedChildType || data.issue_type,
+              assigned_to_user_id: data.assigned_user_ids?.[0] || '',
+              assigned_user_ids: (data.assigned_user_ids || []).map(Number),
+              start_on: dayjs().format('YYYY-MM-DD'),
+              due_on: canSetDueDate && data.due_on
+                ? (data.due_on instanceof Date ? dayjs(data.due_on).format('YYYY-MM-DD') : data.due_on)
+                : '',
             }),
             onSuccess: () => closeDrawer(true),
             forceFormData: true,
@@ -191,6 +205,8 @@ export function CreateTaskDrawer() {
             value={form.data.name}
             onChange={e => updateValue("name", e.target.value)}
             error={form.errors.name}
+            disabled={!isAdmin}
+            readOnly={!isAdmin}
           />
 
           <RichTextEditor
@@ -198,14 +214,17 @@ export function CreateTaskDrawer() {
             height={260}
             value={form.data.description}
             onChange={content => updateValue("description", content)}
+            readOnly={!isAdmin}
           />
 
-          <Dropzone
-            mt="xs"
-            selected={form.data.attachments}
-            onChange={files => updateValue("attachments", files)}
-            remove={index => removeAttachment(index)}
-          />
+          {isAdmin && (
+            <Dropzone
+              mt="xs"
+              selected={form.data.attachments}
+              onChange={files => updateValue("attachments", files)}
+              remove={index => removeAttachment(index)}
+            />
+          )}
 
         <MultiSelect
           className={classes.subscribers}
@@ -220,6 +239,8 @@ export function CreateTaskDrawer() {
             label: i.name,
           }))}
           error={form.errors.subscribed_users}
+          disabled={!isAdmin}
+          readOnly={!isAdmin}
         />
 
           <Flex
@@ -259,6 +280,7 @@ export function CreateTaskDrawer() {
               value: i.id.toString(),
               label: i.name,
             }))}
+            disabled={!isAdmin}
             error={form.errors.group_id}
             size="sm"
           />
@@ -270,43 +292,52 @@ export function CreateTaskDrawer() {
             value={form.data.issue_type}
             onChange={value => updateValue("issue_type", value || "")}
             data={availableIssueTypes}
-            disabled={Boolean(forcedChildType)}
+            disabled={!isAdmin || Boolean(forcedChildType)}
             error={form.errors.issue_type}
             size="sm"
           />
 
-          <Select
-            label="Responsable"
-            placeholder="Selecciona un responsable"
+          <MultiSelect
+            label="Personas asignadas"
+            placeholder={isAdmin ? "Selecciona personas" : "Solo el admin asigna"}
             searchable
-            value={form.data.assigned_to_user_id}
-            onChange={value => updateValue("assigned_to_user_id", value || '')}
+            clearable={isAdmin}
+            disabled={!isAdmin}
+            value={form.data.assigned_user_ids}
+            onChange={values => {
+              form.setData(prev => ({
+                ...prev,
+                assigned_user_ids: values,
+                assigned_to_user_id: values[0] || '',
+                due_on: values.includes(user.id.toString()) ? prev.due_on : '',
+              }));
+            }}
             data={usersWithAccessToProject.map(i => ({
               value: i.id.toString(),
               label: i.name,
             }))}
-            error={form.errors.assigned_to_user_id}
+            error={form.errors.assigned_user_ids || form.errors.assigned_to_user_id}
             size="sm"
           />
 
           <DateInput
-            clearable
             valueFormat="DD MMM YYYY"
             label="Fecha de inicio"
-            placeholder="Selecciona la fecha de inicio"
-            value={form.data.start_on || null}
-            onChange={value => updateValue("start_on", value || "")}
+            placeholder="Automática (hoy)"
+            value={form.data.start_on || new Date()}
+            disabled
             size="sm"
           />
 
           <DateInput
-            clearable
+            clearable={canSetDueDate}
             valueFormat="DD MMM YYYY"
             minDate={new Date()}
-            label="Fecha de vencimiento"
-            placeholder="Selecciona la fecha de vencimiento"
-            value={form.data.due_on || null}
+            label="Fecha de finalización"
+            placeholder={canSetDueDate ? "Selecciona la fecha" : "Solo el asignado"}
+            value={canSetDueDate ? (form.data.due_on || null) : null}
             onChange={value => updateValue("due_on", value || "")}
+            disabled={!canSetDueDate}
             size="sm"
           />
 
@@ -314,11 +345,13 @@ export function CreateTaskDrawer() {
             items={labels}
             selected={form.data.labels}
             onChange={values => updateValue("labels", values)}
+            disabled={!isAdmin}
           />
 
           <PriorityDropdown
             value={form.data.priority_id}
             onChange={value => updateValue("priority_id", value || null)}
+            disabled={!isAdmin}
           />
 
         </div>

@@ -12,11 +12,20 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
+// Gestiona la subida y eliminación de fotos y comprobantes de tareas.
 class AttachmentController extends Controller
 {
+    // Sube fotos o comprobantes a una tarea (admin o usuario asignado).
     public function store(Request $request, Project $project, Task $task): JsonResponse
     {
         $this->authorize('viewAny', [Attachment::class, $project]);
+
+        $user = auth()->user();
+        if (! ($user->isAdmin() || $user->isSuperAdmin()) && ! $task->isAssignedTo($user)) {
+            return response()->json([
+                'message' => 'Solo el administrador o la persona asignada a la tarea puede subir fotos o comprobantes.',
+            ], 403);
+        }
 
         $request->validate([
             'attachments' => ['required', 'array', 'max:10'],

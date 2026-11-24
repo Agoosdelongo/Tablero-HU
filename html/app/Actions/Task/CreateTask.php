@@ -15,26 +15,48 @@ use Illuminate\Support\Str;
 use Intervention\Image\Facades\Image;
 use Throwable;
 
+// Crea tareas de proyecto y sube sus archivos adjuntos.
 class CreateTask
 {
+    // Crea una tarea con fecha de inicio automática y asigna los responsables.
     public function create(Project $project, array $data): Task
     {
         return DB::transaction(function () use ($project, $data) {
+            $assigneeIds = collect($data['assigned_user_ids'] ?? [])
+                ->when(
+                    empty($data['assigned_user_ids']) && ! empty($data['assigned_to_user_id']),
+                    fn ($c) => $c->push($data['assigned_to_user_id'])
+                )
+                ->map(fn ($id) => (int) $id)
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+
+            // Fecha de inicio automática (hoy).
+            // Fecha de finalización permitida para el admin o si el creador es asignado.
+            $user = auth()->user();
+            $canSetDueOn = ($user && ($user->isAdmin() || $user->isSuperAdmin()))
+                || in_array((int) auth()->id(), $assigneeIds, true);
 
             $task = $project->tasks()->create([
                 'group_id' => $data['group_id'],
                 'created_by_user_id' => auth()->id(),
-                'assigned_to_user_id' => $data['assigned_to_user_id'],
+                'assigned_to_user_id' => $assigneeIds[0] ?? null,
                 'name' => $data['name'],
                 'number' => $project->tasks()->withArchived()->count() + 1,
                 'issue_type' => $data['issue_type'],
                 'parent_task_id' => $data['parent_task_id'] ?? null,
                 'description' => $data['description'],
-                'start_on' => $data['start_on'],
-                'due_on' => $data['due_on'],
+                'start_on' => now()->toDateString(),
+                'due_on' => $canSetDueOn ? ($data['due_on'] ?? null) : null,
                 'priority_id' => $data['priority_id'] ?? null,
                 'completed_at' => null,
             ]);
+
+            if (! empty($assigneeIds)) {
+                $task->assignees()->sync($assigneeIds);
+            }
 
             $task->subscribedUsers()->attach($data['subscribed_users'] ?? []);
 
@@ -44,8 +66,10 @@ class CreateTask
                 $this->uploadAttachments($task, $data['attachments'], false);
             }
 
-            if ($task->assigned_to_user_id && $task->assigned_to_user_id !== auth()->id()) {
-                $task->assignedToUser->notify(new TaskAssignedNotification($task));
+            foreach ($task->assignees()->get() as $assignee) {
+                if ((int) $assignee->id !== (int) auth()->id()) {
+                    $assignee->notify(new TaskAssignedNotification($task));
+                }
             }
 
             TaskCreated::dispatch($task);

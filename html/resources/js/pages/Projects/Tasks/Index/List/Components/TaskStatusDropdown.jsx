@@ -1,10 +1,14 @@
 import { Select } from '@mantine/core';
+import { usePage } from '@inertiajs/react';
 import { getGroupSelectColorName } from '@/utils/taskGroupColors';
 
 import useTaskGroupsStore from '@/hooks/store/useTaskGroupsStore';
 import useTasksStore from '@/hooks/store/useTasksStore';
 
+// Selector de estado de la tarea en la vista Lista (solo editable por admin).
 export default function TaskStatusDropdown({ task }) {
+  const { auth: { user } } = usePage().props;
+  const isAdmin = Boolean(user?.is_admin || user?.is_super_admin);
   const { groups } = useTaskGroupsStore();
   const { updateTaskProperty } = useTasksStore();
 
@@ -21,10 +25,12 @@ export default function TaskStatusDropdown({ task }) {
         }))}
         allowDeselect={false}
         searchable={false}
+        disabled={!isAdmin}
         size="xs"
         radius="sm"
         variant="filled"
         onChange={value => {
+          if (!isAdmin) return;
           const group = groups.find(g => g.id === Number(value));
 
           updateTaskProperty(task, 'group_id', group.id, group);

@@ -188,6 +188,13 @@ class PersonalTaskController extends Controller
         $personalTask->load(['user', 'priority']);
         $sentTo = $this->dispatchCalendarInvite($personalTask, false, true);
 
+        if (empty($sentTo)) {
+            return back()->error(
+                'No se pudo enviar el recordatorio',
+                'Verificá la configuración de correo (SMTP) del servidor o revisá storage/logs/laravel.log.'
+            );
+        }
+
         return back()->success(
             'Recordatorio enviado',
             'Se envió el recordatorio y evento de calendario a: '.implode(', ', $sentTo)

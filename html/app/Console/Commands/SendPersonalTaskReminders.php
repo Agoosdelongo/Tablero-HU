@@ -51,15 +51,25 @@ class SendPersonalTaskReminders extends Command
                         continue;
                     }
 
-                    $task->user->notify(new PersonalTaskReminderNotification($task));
+                    try {
+                        $task->user->notify(new PersonalTaskReminderNotification($task));
+                    } catch (\Throwable $e) {
+                        report($e);
+                        $this->error("Failed reminder for task #{$task->id} (owner): {$e->getMessage()}");
+                    }
 
                     $ownerEmail = strtolower(trim((string) ($task->user->google_calendar_email ?: $task->user->email)));
                     foreach ((array) ($task->shared_emails ?? []) as $guestEmail) {
                         $guestEmail = strtolower(trim((string) $guestEmail));
                         if ($guestEmail && $guestEmail !== $ownerEmail && filter_var($guestEmail, FILTER_VALIDATE_EMAIL)) {
-                            Notification::route('mail', $guestEmail)->notify(
-                                new PersonalTaskReminderNotification($task, false, true)
-                            );
+                            try {
+                                Notification::route('mail', $guestEmail)->notify(
+                                    new PersonalTaskReminderNotification($task, false, true)
+                                );
+                            } catch (\Throwable $e) {
+                                report($e);
+                                $this->error("Failed reminder for task #{$task->id} (guest {$guestEmail}): {$e->getMessage()}");
+                            }
                         }
                     }
 

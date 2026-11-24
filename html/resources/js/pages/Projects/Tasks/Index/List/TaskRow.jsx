@@ -1,4 +1,5 @@
 import { Badge, Checkbox, Group, Text, ActionIcon } from '@mantine/core';
+import { usePage } from '@inertiajs/react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import IssueTypeIcon from '@/components/IssueTypeIcon';
 
@@ -46,6 +47,8 @@ export default function TaskRow({
 }) {
   const { openEditTask, openCreateTask } = useTaskDrawerStore();
   const { selectedTaskIds, toggleTaskSelection } = useTasksStore();
+  const { auth: { user } } = usePage().props;
+  const isAdmin = Boolean(user?.is_admin || user?.is_super_admin);
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: task.id,
@@ -173,7 +176,7 @@ export default function TaskRow({
             </div>
           </Group>
 
-          {task.issue_type !== 'Subtarea' && (
+          {isAdmin && task.issue_type !== 'Subtarea' && (
             <div
               className={classes.summaryAction}
               onClick={e => {

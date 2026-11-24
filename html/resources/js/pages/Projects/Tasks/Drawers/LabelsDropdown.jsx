@@ -11,16 +11,22 @@ import { IconSelector } from "@tabler/icons-react";import {
   useCombobox,
 } from "@mantine/core";
 
-export default function LabelsDropdown({ items, selected, onChange, ...props }) {
+export default function LabelsDropdown({ items, selected, onChange, disabled = false, ...props }) {
+  const isDisabled = disabled || !can("edit task");
   const combobox = useCombobox({
     onDropdownClose: () => combobox.resetSelectedOption(),
     onDropdownOpen: () => combobox.updateSelectedOptionIndex("active"),
   });
 
-  const handleValueSelect = (val) =>
+  const handleValueSelect = (val) => {
+    if (isDisabled) return;
     onChange(selected.includes(val) ? selected.filter((v) => v !== val) : [...selected, val]);
+  };
 
-  const handleValueRemove = (val) => onChange(selected.filter((v) => v !== val));
+  const handleValueRemove = (val) => {
+    if (isDisabled) return;
+    onChange(selected.filter((v) => v !== val));
+  };
 
   return (
     <Box {...props}>
@@ -29,12 +35,13 @@ export default function LabelsDropdown({ items, selected, onChange, ...props }) 
         store={combobox}
         onOptionSubmit={handleValueSelect}
         withinPortal={false}
-        disabled={!can("edit task")}
+        disabled={isDisabled}
       >
         <Combobox.DropdownTarget>
               <PillsInput
-                pointer
-                onClick={() => combobox.toggleDropdown()}
+                pointer={!isDisabled}
+                disabled={isDisabled}
+                onClick={() => !isDisabled && combobox.toggleDropdown()}
                 rightSection={
                   <IconSelector
                     size={14}
