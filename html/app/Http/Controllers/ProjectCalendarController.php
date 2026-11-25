@@ -15,13 +15,28 @@ class ProjectCalendarController extends Controller
 
         $tasks = $project
             ->tasks()
-            ->whereNotNull('due_on')
             ->with([
                 'assignedToUser:id,name,avatar',
                 'priority:id,label,color,order',
-                'taskGroup:id,name',
+                'taskGroup:id,name,color',
             ])
-            ->get();
+            ->get()
+            ->map(fn (Task $task) => [
+                'id' => $task->id,
+                'number' => $task->number,
+                'name' => $task->name,
+                'issue_type' => $task->issue_type,
+                'start_on' => $task->start_on?->toDateString() ?? $task->created_at?->toDateString(),
+                'due_on' => $task->due_on?->toDateString(),
+                'completed_at' => $task->completed_at?->toDateString(),
+                'group' => $task->taskGroup ? [
+                    'id' => $task->taskGroup->id,
+                    'name' => $task->taskGroup->name,
+                    'color' => $task->taskGroup->color,
+                ] : null,
+                'assigned_to_user' => $task->assignedToUser,
+                'priority' => $task->priority,
+            ]);
 
         return Inertia::render('Projects/Calendar/Index', [
             'project' => $project,

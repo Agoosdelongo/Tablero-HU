@@ -16,6 +16,7 @@ import {
   rem,
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
+import dayjs from 'dayjs';
 import { useEffect, useRef } from 'react';
 import LabelsDropdown from './LabelsDropdown';
 import PriorityDropdown from './PriorityDropdown';
@@ -51,8 +52,8 @@ export function CreateTaskDrawer() {
     issue_type: create.issue_type || '',
     parent_task_id: create.parent_task_id,
     priority_id: null,
-    start_on: '',
-    due_on: '',
+    start_on: dayjs().toDate(),
+    due_on: null,
     subscribed_users: [user.id.toString()],
     labels: [],
     attachments: [],
@@ -77,8 +78,8 @@ export function CreateTaskDrawer() {
         issue_type: resolvedIssueType,
         parent_task_id: create.parent_task_id,
         priority_id: null,
-        start_on: '',
-        due_on: '',
+        start_on: dayjs().toDate(),
+        due_on: null,
         subscribed_users: [user.id.toString()],
         labels: [],
         attachments: [],
@@ -88,16 +89,21 @@ export function CreateTaskDrawer() {
   }, [create.opened, create.group_id, create.issue_type, create.parent_task_id]);
 
   const closeDrawer = (force = false) => {
-    const isEmpty = (
+    const isDefaultStartOn =
+      !form.data.start_on ||
+      (form.data.start_on instanceof Date &&
+        dayjs(form.data.start_on).format('YYYY-MM-DD') === dayjs().format('YYYY-MM-DD')) ||
+      form.data.start_on === dayjs().format('YYYY-MM-DD');
+
+    const isEmpty =
       form.data.name === '' &&
       form.data.description === '' &&
       form.data.assigned_to_user_id === '' &&
-      form.data.start_on === '' &&
-      form.data.due_on === '' &&
+      isDefaultStartOn &&
+      (!form.data.due_on || form.data.due_on === '') &&
       form.data.labels.length === 0 &&
       form.data.priority_id === null &&
-      form.data.attachments.length === 0
-    );
+      form.data.attachments.length === 0;
     
     if (force || (isEmpty && !form.processing)) {
       closeCreateTask();
@@ -170,6 +176,14 @@ export function CreateTaskDrawer() {
               ...data,
               parent_task_id: create.parent_task_id,
               issue_type: forcedChildType || data.issue_type,
+              start_on:
+                data.start_on instanceof Date
+                  ? dayjs(data.start_on).format('YYYY-MM-DD')
+                  : data.start_on || dayjs().format('YYYY-MM-DD'),
+              due_on:
+                data.due_on instanceof Date
+                  ? dayjs(data.due_on).format('YYYY-MM-DD')
+                  : data.due_on || null,
             }),
             onSuccess: () => closeDrawer(true),
             forceFormData: true,
@@ -294,19 +308,37 @@ export function CreateTaskDrawer() {
             valueFormat="DD MMM YYYY"
             label="Fecha de inicio"
             placeholder="Selecciona la fecha de inicio"
-            value={form.data.start_on || null}
-            onChange={value => updateValue("start_on", value || "")}
+            value={
+              form.data.start_on
+                ? form.data.start_on instanceof Date
+                  ? form.data.start_on
+                  : dayjs(form.data.start_on).toDate()
+                : null
+            }
+            onChange={value => updateValue("start_on", value || null)}
             size="sm"
           />
 
           <DateInput
             clearable
             valueFormat="DD MMM YYYY"
-            minDate={new Date()}
+            minDate={
+              form.data.start_on
+                ? form.data.start_on instanceof Date
+                  ? form.data.start_on
+                  : dayjs(form.data.start_on).toDate()
+                : new Date()
+            }
             label="Fecha de vencimiento"
             placeholder="Selecciona la fecha de vencimiento"
-            value={form.data.due_on || null}
-            onChange={value => updateValue("due_on", value || "")}
+            value={
+              form.data.due_on
+                ? form.data.due_on instanceof Date
+                  ? form.data.due_on
+                  : dayjs(form.data.due_on).toDate()
+                : null
+            }
+            onChange={value => updateValue("due_on", value || null)}
             size="sm"
           />
 

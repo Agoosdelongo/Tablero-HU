@@ -171,6 +171,22 @@ export default function TaskRow({
             >
               <EditableTaskName task={task} />
             </div>
+
+            {hasChildren && (
+              <Badge
+                size='xs'
+                variant='light'
+                color='gray'
+                style={{ cursor: 'pointer', flexShrink: 0 }}
+                onClick={e => {
+                  e.stopPropagation();
+                  onToggle();
+                }}
+                title={`${task.children?.length || 0} subtareas`}
+              >
+                {task.children?.length || 0}
+              </Badge>
+            )}
           </Group>
 
           {task.issue_type !== 'Subtarea' && (

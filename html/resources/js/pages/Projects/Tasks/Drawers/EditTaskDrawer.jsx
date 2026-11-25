@@ -6,12 +6,16 @@ import useWebSockets from '@/hooks/useWebSockets';
 import { date } from '@/utils/datetime';
 import { usePage } from '@inertiajs/react';
 import {
+  Badge,
+  Box,
   Breadcrumbs,
+  Button,
   Checkbox,
   Drawer,
   Group,
   MultiSelect,
   Select,
+  Stack,
   Text,
   TextInput,
   rem,
@@ -19,6 +23,7 @@ import {
 import { DateInput } from '@mantine/dates';
 import dayjs from 'dayjs';
 import { useEffect, useRef, useState } from 'react';
+import { IconChevronRight, IconPlus } from '@tabler/icons-react';
 import Comments from './Comments';
 import LabelsDropdown from './LabelsDropdown';
 import PriorityDropdown from './PriorityDropdown';
@@ -26,7 +31,7 @@ import classes from './css/TaskDrawer.module.css';
 
 export function EditTaskDrawer() {
   const editorRef = useRef(null);
-  const { edit, openEditTask, closeEditTask } = useTaskDrawerStore();
+  const { edit, openEditTask, openCreateTask, closeEditTask } = useTaskDrawerStore();
   const { initTaskWebSocket } = useWebSockets();
   const { findTask, updateTaskProperty, complete, deleteAttachment, uploadAttachments } =
     useTasksStore();
@@ -213,6 +218,88 @@ export function EditTaskDrawer() {
                 onBlur={() => onBlurUpdate('description')}
                 readOnly={!can('edit task')}
               />
+
+              {/* Subtareas */}
+              {task.issue_type !== 'Subtarea' && (
+                <Box mt='xl'>
+                  <Group justify='space-between' mb='xs'>
+                    <Group gap='xs'>
+                      <Text fw={600} size='sm'>
+                        Subtareas
+                      </Text>
+                      <Badge size='sm' variant='light' color='blue'>
+                        {(task.children || []).filter(c => (findTask(c.id) || c).completed_at !== null).length}/
+                        {(task.children || []).length}
+                      </Badge>
+                    </Group>
+                    {can('create task') && (
+                      <Button
+                        variant='subtle'
+                        size='xs'
+                        leftSection={<IconPlus size={14} />}
+                        onClick={() =>
+                          openCreateTask({
+                            group_id: task.group_id,
+                            parent_task_id: task.id,
+                            parent_issue_type: task.issue_type,
+                          })
+                        }
+                      >
+                        Agregar subtarea
+                      </Button>
+                    )}
+                  </Group>
+
+                  {(task.children || []).length > 0 ? (
+                    <Stack gap='xs'>
+                      {(task.children || []).map(rawChild => {
+                        const child = findTask(rawChild.id) || rawChild;
+                        return (
+                          <Group
+                            key={child.id}
+                            justify='space-between'
+                            p='xs'
+                            style={{
+                              borderRadius: 6,
+                              backgroundColor: 'var(--mantine-color-default-hover)',
+                              cursor: 'pointer',
+                            }}
+                            onClick={() => openEditTask(child)}
+                          >
+                            <Group gap='xs'>
+                              <Checkbox
+                                size='xs'
+                                radius='xl'
+                                color='green'
+                                checked={child.completed_at !== null}
+                                onChange={e => {
+                                  e.stopPropagation();
+                                  complete(child, e.currentTarget.checked);
+                                }}
+                                onClick={e => e.stopPropagation()}
+                              />
+                              <Text
+                                size='sm'
+                                style={{
+                                  textDecoration: child.completed_at ? 'line-through' : 'none',
+                                  opacity: child.completed_at ? 0.6 : 1,
+                                }}
+                              >
+                                #{child.number}: {child.name}
+                              </Text>
+                            </Group>
+                            <IconChevronRight size={14} color='var(--mantine-color-gray-6)' />
+                          </Group>
+                        );
+                      })}
+                    </Stack>
+                  ) : (
+                    <Text size='xs' c='dimmed'>
+                      No hay subtareas asociadas.
+                    </Text>
+                  )}
+                </Box>
+              )}
 
               {/* Archivos */}
               {can('edit task') && (
