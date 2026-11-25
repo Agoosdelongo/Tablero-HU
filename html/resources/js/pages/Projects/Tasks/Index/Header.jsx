@@ -21,7 +21,8 @@ import {
 } from '@tabler/icons-react';
 
 export default function Header() {
-  const { project } = usePage().props;
+  const { project, auth: { user } } = usePage().props;
+  const isAdmin = Boolean(user?.is_admin || user?.is_super_admin);
 
   const { openDrawer } = useTaskFiltersStore();
   const { openCreateTask } = useTaskDrawerStore();
@@ -118,7 +119,7 @@ export default function Header() {
             </ActionIcon.Group>
           </Group>
 
-          {can('create task') && (
+          {isAdmin && can('create task') && (
             <Button
               leftSection={<IconPlus size={14} />}
               radius="xl"

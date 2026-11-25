@@ -1,4 +1,5 @@
 import { DragDropContext, Droppable } from '@hello-pangea/dnd';
+import { usePage } from '@inertiajs/react';
 import { Button } from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
 
@@ -8,6 +9,9 @@ import CreateTasksGroupModal from './Modals/CreateTasksGroupModal';
 import classes from '../css/Index.module.css';
 
 const BoardView = ({ groups, tasks, usingFilters, onDragEnd, tasksView }) => {
+  const { auth: { user } } = usePage().props;
+  const isAdmin = Boolean(user?.is_admin || user?.is_super_admin);
+
   return (
     <DragDropContext onDragEnd={onDragEnd}>
       <Droppable
@@ -32,7 +36,7 @@ const BoardView = ({ groups, tasks, usingFilters, onDragEnd, tasksView }) => {
                   />
                 ))}
               {provided.placeholder}
-              {!route().params.archived && can('create task group') && (
+              {!route().params.archived && isAdmin && can('create task group') && (
                 <Button
                   leftSection={<IconPlus size={14} />}
                   variant='transparent'

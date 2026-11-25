@@ -10,14 +10,7 @@ use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Str;
 
-/**
- * Notificación y sincronización con Google Calendar para tareas personales.
- *
- * - Si $isInitialInvite = true: envía la invitación iCalendar (METHOD:REQUEST) al crear/editar
- *   la tarea al correo de Google vinculado y a los invitados de la reunión.
- * - Si $isInitialInvite = false: envía el recordatorio previo (ej. 7 días antes) por correo
- *   (con día, fecha, hora y nombre de la tarea + adjunto .ics) y por campanita interna.
- */
+// Envía recordatorios e invitaciones de Google Calendar (.ics) para tareas personales.
 class PersonalTaskReminderNotification extends Notification
 {
     use Queueable;

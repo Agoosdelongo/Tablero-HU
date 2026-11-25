@@ -4,6 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+// Agrega correo de Google Calendar, invitados compartidos y recordatorios en días.
 return new class extends Migration
 {
     public function up(): void

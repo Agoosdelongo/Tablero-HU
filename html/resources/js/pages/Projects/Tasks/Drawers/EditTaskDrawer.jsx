@@ -29,6 +29,7 @@ import LabelsDropdown from './LabelsDropdown';
 import PriorityDropdown from './PriorityDropdown';
 import classes from './css/TaskDrawer.module.css';
 
+// Panel lateral para ver y editar una actividad según el rol del usuario.
 export function EditTaskDrawer() {
   const editorRef = useRef(null);
   const { edit, openEditTask, openCreateTask, closeEditTask } = useTaskDrawerStore();
@@ -50,13 +51,21 @@ export function EditTaskDrawer() {
 
   const task = findTask(edit.task.id);
 
+  const isAdmin = Boolean(user?.is_admin || user?.is_super_admin);
+  const canEditNameAndDescription =
+    Boolean(task) &&
+    isAdmin &&
+    (task.created_by_user_id == null || Number(task.created_by_user_id) === Number(user?.id));
+
   const [data, setData] = useState({
     group_id: '',
     assigned_to_user_id: '',
+    assigned_user_ids: [],
     name: '',
     description: '',
     issue_type: '',
     priority_id: '',
+    start_on: '',
     due_on: '',
     subscribed_users: [],
     labels: [],
@@ -70,9 +79,17 @@ export function EditTaskDrawer() {
 
   useEffect(() => {
     if (edit.opened) {
+      const assignedIds =
+        Array.isArray(task?.assignees) && task.assignees.length > 0
+          ? task.assignees.filter(i => i?.id != null).map(i => i.id.toString())
+          : task?.assigned_to_user_id
+            ? [task.assigned_to_user_id.toString()]
+            : [];
+
       setData({
         group_id: task?.group_id || '',
         assigned_to_user_id: task?.assigned_to_user_id || '',
+        assigned_user_ids: assignedIds,
         name: task?.name || '',
         description: task?.description || '',
         issue_type: task?.issue_type || '',
@@ -98,7 +115,32 @@ export function EditTaskDrawer() {
     }
   }, [edit.opened, task]);
 
+  const taskAssignedIds =
+    Array.isArray(task?.assignees) && task.assignees.length > 0
+      ? task.assignees.filter(i => i?.id != null).map(i => String(i.id))
+      : task?.assigned_to_user_id
+        ? [String(task.assigned_to_user_id)]
+        : [];
+  const isCurrentUserAssigned =
+    (data.assigned_user_ids || []).includes(String(user?.id)) ||
+    taskAssignedIds.includes(String(user?.id));
+  const canEditDueDate = isAdmin || isCurrentUserAssigned;
+  const canUploadAttachment = isAdmin || isCurrentUserAssigned;
+
   const updateValue = (field, value) => {
+    if ((field === 'name' || field === 'description') && !canEditNameAndDescription) {
+      return;
+    }
+    if (field === 'start_on') {
+      return;
+    }
+    if (field === 'due_on' && !canEditDueDate) {
+      return;
+    }
+    if ((field === 'assigned_user_ids' || field === 'assigned_to_user_id' || field === 'subscribed_users' || field === 'priority_id' || field === 'labels' || field === 'issue_type' || field === 'group_id') && !isAdmin) {
+      return;
+    }
+
     // Convertir Date objects a string YYYY-MM-DD para fechas
     let valueToStore = value;
     if ((field === 'due_on' || field === 'start_on') && value instanceof Date) {
@@ -107,17 +149,21 @@ export function EditTaskDrawer() {
 
     setData({ ...data, [field]: value });
 
-    const dropdowns = ['labels', 'subscribed_users'];
+    const dropdowns = ['labels', 'subscribed_users', 'assigned_user_ids'];
     const onBlurInputs = ['name', 'description'];
 
     if (dropdowns.includes(field)) {
       const options = {
-        labels: value.map(id => labels.find(i => i.id === id)),
-        subscribed_users: value.map(id =>
-          usersWithAccessToProject.find(i => i.id.toString() === id)
-        ),
+        labels: value.map(id => labels.find(i => i.id === id)).filter(Boolean),
+        subscribed_users: value
+          .map(id => usersWithAccessToProject.find(i => i.id.toString() === id))
+          .filter(Boolean),
+        assigned_user_ids: value
+          .map(id => usersWithAccessToProject.find(i => i.id.toString() === id))
+          .filter(Boolean),
       };
-      updateTaskProperty(task, field, value, options[field]);
+      const payloadValue = field === 'assigned_user_ids' ? value.map(Number) : value;
+      updateTaskProperty(task, field, payloadValue, options[field]);
     } else if (field === 'priority_id') {
       const priority = value ? priorities.find(p => p.id === value) : null;
       updateTaskProperty(task, field, value, priority);
@@ -127,6 +173,9 @@ export function EditTaskDrawer() {
   };
 
   const onBlurUpdate = property => {
+    if ((property === 'name' || property === 'description') && !canEditNameAndDescription) {
+      return;
+    }
     if (data.name.length > 0) {
       updateTaskProperty(task, property, data[property]);
     }
@@ -147,8 +196,10 @@ export function EditTaskDrawer() {
             radius='xl'
             color='green'
             checked={task?.completed_at !== null}
-            onChange={e => complete(task, e.currentTarget.checked)}
-            className={can('complete task') ? classes.checkbox : classes.disabledCheckbox}
+            disabled={!isAdmin}
+            onChange={e => isAdmin && complete(task, e.currentTarget.checked)}
+            className={isAdmin && can('complete task') ? classes.checkbox : classes.disabledCheckbox}
+            style={!isAdmin ? { pointerEvents: 'none', opacity: 0.6 } : undefined}
           />
           <Text
             fz={rem(27)}
@@ -199,24 +250,33 @@ export function EditTaskDrawer() {
               <TextInput
                 className={classes.nameField}
                 label='Nombre'
+                description={!canEditNameAndDescription ? 'Solo el administrador que asignó la tarea puede modificar el nombre.' : undefined}
                 placeholder='Nombre de la actividad'
                 value={data.name}
                 onChange={e => updateValue('name', e.target.value)}
                 onBlur={() => onBlurUpdate('name')}
                 error={data.name.length === 0}
-                readOnly={!can('edit task')}
+                readOnly={!canEditNameAndDescription}
+                disabled={!canEditNameAndDescription}
+                tabIndex={!canEditNameAndDescription ? -1 : undefined}
+                styles={!canEditNameAndDescription ? { root: { pointerEvents: 'none' }, input: { cursor: 'not-allowed' } } : undefined}
               />
 
               {/* Descripción */}
+              {!canEditNameAndDescription && (
+                <Text size='xs' c='dimmed' mt='md' mb={4}>
+                  Descripción (solo editable por el administrador que asignó la tarea)
+                </Text>
+              )}
               <RichTextEditor
                 ref={editorRef}
-                mt='xl'
+                mt={canEditNameAndDescription ? 'xl' : 0}
                 placeholder='Descripción de la actividad'
                 content={data.description}
                 height={260}
                 onChange={content => updateValue('description', content)}
                 onBlur={() => onBlurUpdate('description')}
-                readOnly={!can('edit task')}
+                readOnly={!canEditNameAndDescription}
               />
 
               {/* Subtareas */}
@@ -301,19 +361,23 @@ export function EditTaskDrawer() {
                 </Box>
               )}
 
-              {/* Archivos */}
-              {can('edit task') && (
-                <Dropzone
-                  className={classes.attachments}
-                  mt='xl'
-                  selected={task.attachments}
-                  onChange={files => uploadAttachments(task, files)}
-                  remove={index => deleteAttachment(task, index)}
-                />
+              {/* Foto o comprobante de la tarea */}
+              {canUploadAttachment && (
+                <>
+                  <Text size='sm' fw={500} mt='xl' mb={4}>
+                    Foto o comprobante de la tarea
+                  </Text>
+                  <Dropzone
+                    className={classes.attachments}
+                    selected={task.attachments}
+                    onChange={files => uploadAttachments(task, files)}
+                    remove={index => deleteAttachment(task, index)}
+                  />
+                </>
               )}
 
               {/* Comentarios */}
-              {can('view comments') && <Comments task={task} />}
+              {can('view comments') && <Comments key={task.id} task={task} />}
             </div>
 
             <div className={classes.sidebar}>
@@ -328,7 +392,11 @@ export function EditTaskDrawer() {
                   value: i.id.toString(),
                   label: i.name,
                 }))}
-                readOnly={!can('edit task')}
+                readOnly={!isAdmin}
+                disabled={!isAdmin}
+                tabIndex={!isAdmin ? -1 : undefined}
+                rightSection={!isAdmin ? null : undefined}
+                styles={!isAdmin ? { root: { pointerEvents: 'none' }, input: { cursor: 'not-allowed' } } : undefined}
                 size='sm'
               />
 
@@ -346,50 +414,69 @@ export function EditTaskDrawer() {
                   { value: 'Tarea', label: 'Tarea' },
                   { value: 'Subtarea', label: 'Subtarea' },
                 ]}
-                readOnly={!can('edit task')}
+                readOnly={!isAdmin}
+                disabled={!isAdmin}
+                tabIndex={!isAdmin ? -1 : undefined}
+                rightSection={!isAdmin ? null : undefined}
+                styles={!isAdmin ? { root: { pointerEvents: 'none' }, input: { cursor: 'not-allowed' } } : undefined}
                 size='sm'
               />
 
-              {/* Responsable */}
-              <Select
-                label='Responsable'
-                placeholder='Selecciona un responsable'
-                searchable
+              {/* Personas asignadas */}
+              <MultiSelect
+                label='Personas asignadas'
+                description={isAdmin
+                  ? 'Seleccioná las personas a las que les asignás la tarea.'
+                  : 'Solo el administrador puede modificar las personas asignadas.'}
+                placeholder={!data.assigned_user_ids.length ? 'Sin personas asignadas' : null}
+                searchable={isAdmin}
                 mt='ms'
-                value={data.assigned_to_user_id?.toString()}
-                onChange={value => updateValue('assigned_to_user_id', value)}
+                value={data.assigned_user_ids}
+                onChange={values => updateValue('assigned_user_ids', values)}
                 data={usersWithAccessToProject.map(i => ({
                   value: i.id.toString(),
                   label: i.name,
                 }))}
-                readOnly={!can('edit task')}
+                readOnly={!isAdmin}
+                disabled={!isAdmin}
+                tabIndex={!isAdmin ? -1 : undefined}
+                rightSection={!isAdmin ? null : undefined}
+                styles={!isAdmin ? { root: { pointerEvents: 'none' }, input: { cursor: 'not-allowed' } } : undefined}
                 size='sm'
               />
 
               {/* Fecha de inicio */}
               <DateInput
-                clearable
                 valueFormat='DD MMM YYYY'
                 mt='ms'
                 label='Fecha de inicio'
-                placeholder='Selecciona la fecha de inicio'
+                description='Se completa automáticamente al crear la tarea.'
+                placeholder='Automática'
                 value={data.start_on}
-                onChange={value => updateValue('start_on', value)}
-                readOnly={!can('edit task')}
+                readOnly
+                disabled
+                tabIndex={-1}
+                styles={{ root: { pointerEvents: 'none' }, input: { cursor: 'not-allowed' } }}
                 size='sm'
               />
 
-              {/* Fecha de vencimiento */}
+              {/* Fecha de finalización */}
               <DateInput
-                clearable
+                clearable={canEditDueDate}
                 valueFormat='DD MMM YYYY'
                 minDate={data.start_on || new Date()}
                 mt='ms'
-                label='Fecha de vencimiento'
-                placeholder='Selecciona la fecha de vencimiento'
+                label='Fecha de finalización'
+                description={!canEditDueDate
+                  ? 'Habilitado solo para quien deba cumplir la tarea.'
+                  : 'Indicá la fecha de finalización de la tarea.'}
+                placeholder={canEditDueDate ? 'Selecciona la fecha de finalización' : 'Solo editable por el asignado'}
                 value={data.due_on}
                 onChange={value => updateValue('due_on', value)}
-                readOnly={!can('edit task')}
+                readOnly={!canEditDueDate}
+                disabled={!canEditDueDate}
+                tabIndex={!canEditDueDate ? -1 : undefined}
+                styles={!canEditDueDate ? { root: { pointerEvents: 'none' }, input: { cursor: 'not-allowed' } } : undefined}
                 size='sm'
               />
 
@@ -398,6 +485,7 @@ export function EditTaskDrawer() {
                 items={labels}
                 selected={data.labels}
                 onChange={values => updateValue('labels', values)}
+                disabled={!isAdmin}
                 mt='ms'
               />
 
@@ -407,6 +495,7 @@ export function EditTaskDrawer() {
                 onChange={value => {
                   updateValue('priority_id', value || null);
                 }}
+                disabled={!isAdmin}
                 mt='ms'
               />
 
@@ -421,7 +510,11 @@ export function EditTaskDrawer() {
                   value: i.id.toString(),
                   label: i.name,
                 }))}
-                readOnly={!can('edit task')}
+                readOnly={!isAdmin}
+                disabled={!isAdmin}
+                tabIndex={!isAdmin ? -1 : undefined}
+                rightSection={!isAdmin ? null : undefined}
+                styles={!isAdmin ? { root: { pointerEvents: 'none' }, input: { cursor: 'not-allowed' } } : undefined}
                 size='sm'
               />
             </div>

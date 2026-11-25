@@ -4,18 +4,19 @@ import useTasksStore from "@/hooks/store/useTasksStore";
 import { isOverdue } from "@/utils/task";
 import { shortName } from "@/utils/user";
 import { Draggable } from "@hello-pangea/dnd";
-import { Link } from "@inertiajs/react";
+import { Link, usePage } from "@inertiajs/react";
 import { Checkbox, Flex, Group, Pill, Text, Tooltip, rem } from "@mantine/core";
 import { IconGripVertical } from "@tabler/icons-react";
 import TaskActions from "../TaskActions";
 import classes from "./css/TaskRow.module.css";
 
 export default function TaskRow({ task, index }) {
-  
+  const { auth: { user } } = usePage().props;
+  const isAdmin = Boolean(user?.is_admin || user?.is_super_admin);
   const { complete } = useTasksStore();
   const { openEditTask } = useTaskDrawerStore();
   return (
-    <Draggable draggableId={"task-" + task.id} index={index}>
+    <Draggable draggableId={"task-" + task.id} index={index} isDragDisabled={!isAdmin}>
       {(provided, snapshot) => (
         <Flex
           {...provided.draggableProps}
@@ -35,12 +36,12 @@ export default function TaskRow({ task, index }) {
           )}
 
           <Group gap="sm" wrap="nowrap" w="100%">
-            <div {...provided.dragHandleProps}>
+            <div {...(isAdmin ? provided.dragHandleProps : {})}>
               <IconGripVertical
                 style={{
                   width: rem(18),
                   height: rem(18),
-                  display: can("reorder task") ? "inline" : "none",
+                  display: isAdmin && can("reorder task") ? "inline" : "none",
                 }}
                 stroke={1.5}
                 className={classes.dragHandle}
@@ -52,18 +53,28 @@ export default function TaskRow({ task, index }) {
               radius="xl"
               color="green"
               checked={task.completed_at !== null}
-              onChange={(e) => complete(task, e.currentTarget.checked)}
-              className={can("complete task") ? classes.checkbox : classes.disabledCheckbox}
+              disabled={!isAdmin}
+              onChange={(e) => isAdmin && complete(task, e.currentTarget.checked)}
+              className={isAdmin && can("complete task") ? classes.checkbox : classes.disabledCheckbox}
+              style={!isAdmin ? { pointerEvents: "none", opacity: 0.6 } : undefined}
             />
 
             {task.assigned_to_user && (
-              <Link href={route("users.edit", task.assigned_to_user.id)}>
+              isAdmin ? (
+                <Link href={route("users.edit", task.assigned_to_user.id)}>
+                  <Tooltip label={task.assigned_to_user.name} openDelay={1000} withArrow>
+                    <Pill size="sm" className={classes.user}>
+                      {shortName(task.assigned_to_user.name)}
+                    </Pill>
+                  </Tooltip>
+                </Link>
+              ) : (
                 <Tooltip label={task.assigned_to_user.name} openDelay={1000} withArrow>
                   <Pill size="sm" className={classes.user}>
                     {shortName(task.assigned_to_user.name)}
                   </Pill>
                 </Tooltip>
-              </Link>
+              )
             )}
 
             <Text
@@ -83,7 +94,7 @@ export default function TaskRow({ task, index }) {
               ))}
             </Group>
 
-            {(can("archive task") || can("restore task")) && (
+            {isAdmin && (can("archive task") || can("restore task")) && (
               <TaskActions task={task} className={classes.actions} />
             )}
           </Group>

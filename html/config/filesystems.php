@@ -41,7 +41,7 @@ return [
         'invoices' => [
             'driver' => 'local',
             'root' => storage_path('app/invoices'),
-            'url' => env('APP_URL').'/storage',
+            'url' => rtrim((string) env('APP_URL'), '/').'/storage',
             'visibility' => 'private',
             'directory_visibility' => 'public',
         ],
@@ -49,7 +49,7 @@ return [
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),
-            'url' => env('APP_URL').'/storage',
+            'url' => rtrim((string) env('APP_URL'), '/').'/storage',
             'visibility' => 'public',
             'throw' => false,
             'directory_visibility' => 'public',
@@ -69,8 +69,8 @@ return [
 
         'external' => [
             'driver' => 'local',
-            'root' => '/tablerohu/imagenes',
-            'url' => env('APP_URL').'/imagenes',
+            'root' => is_dir('/tablerohu/imagenes') ? '/tablerohu/imagenes' : public_path('imagenes'),
+            'url' => rtrim((string) env('APP_URL'), '/').'/imagenes',
             'visibility' => 'public',
             'directory_visibility' => 'public',
             'throw' => false,

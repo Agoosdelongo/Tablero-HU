@@ -17,6 +17,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import classes from "./css/Comments.module.css";
 
+// Muestra y permite agregar comentarios en una tarea.
 export default function Comments({ task }) {
   const { comments, fetchComments, saveComment } = useTasksStore();
   const [loading, setLoading] = useState(true);
@@ -24,8 +25,11 @@ export default function Comments({ task }) {
   const editorRef = useRef(null);
 
   useEffect(() => {
+    if (!task?.id) return;
+    setLoading(true);
+    setComment("");
     fetchComments(task, () => setLoading(false));
-  }, []);
+  }, [task?.id]);
 
   return (
     <Box mb="xl">

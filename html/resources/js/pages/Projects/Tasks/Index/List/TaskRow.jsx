@@ -1,4 +1,5 @@
 import { Badge, Checkbox, Group, Text, ActionIcon } from '@mantine/core';
+import { usePage } from '@inertiajs/react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import IssueTypeIcon from '@/components/IssueTypeIcon';
 
@@ -46,10 +47,13 @@ export default function TaskRow({
 }) {
   const { openEditTask, openCreateTask } = useTaskDrawerStore();
   const { selectedTaskIds, toggleTaskSelection } = useTasksStore();
+  const { auth: { user } } = usePage().props;
+  const isAdmin = Boolean(user?.is_admin || user?.is_super_admin);
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: task.id,
     data: { task },
+    disabled: !isAdmin,
   });
 
   const isBeingDragged = dragState?.activeTask?.id === task.id;
@@ -76,18 +80,21 @@ export default function TaskRow({
     >
       <div
         className={classes.dragHandle}
-        {...attributes}
-        {...listeners}
+        {...(isAdmin ? attributes : {})}
+        {...(isAdmin ? listeners : {})}
         onClick={e => e.stopPropagation()}
+        style={!isAdmin ? { pointerEvents: 'none' } : undefined}
       >
-        <IconGripVertical
-          size={14}
-          color='var(--mantine-color-gray-5)'
-        />
+        {isAdmin && (
+          <IconGripVertical
+            size={14}
+            color='var(--mantine-color-gray-5)'
+          />
+        )}
       </div>
 
       <div className={classes.checkbox}>
-          {can('archive task') && (
+          {isAdmin && can('archive task') && (
               <Checkbox
                   size='xs'
                   checked={selectedTaskIds.includes(task.id)}
@@ -189,7 +196,7 @@ export default function TaskRow({
             )}
           </Group>
 
-          {task.issue_type !== 'Subtarea' && (
+          {isAdmin && task.issue_type !== 'Subtarea' && (
             <div
               className={classes.summaryAction}
               onClick={e => {
@@ -259,7 +266,7 @@ export default function TaskRow({
         className={classes.actions}
         onClick={e => e.stopPropagation()}
       >
-        <TaskActions task={task} />
+        {isAdmin && <TaskActions task={task} />}
       </div>
     </div>
   );

@@ -6,7 +6,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import Underline from "@tiptap/extension-underline";
 import { useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { forwardRef, useImperativeHandle } from "react";
+import { forwardRef, useEffect, useImperativeHandle } from "react";
 import suggestion from "./RichTextEditor/Mention/suggestion.js";
 import classes from "./css/RichTextEditor.module.css";
 
@@ -21,6 +21,7 @@ const fillStyles = {
   content: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column" },
 };
 
+// Editor de texto enriquecido con soporte dinámico de solo lectura.
 const RichTextEditor = forwardRef(function RichTextEditor(
   { onChange, placeholder, content, height = 200, readOnly = false, fill = false, ...props },
   ref,
@@ -42,13 +43,21 @@ const RichTextEditor = forwardRef(function RichTextEditor(
     ],
     content,
     onUpdate({ editor }) {
-      onChange(editor.getHTML());
+      if (!readOnly) {
+        onChange(editor.getHTML());
+      }
     },
   });
 
+  useEffect(() => {
+    if (editor) {
+      editor.setEditable(!readOnly);
+    }
+  }, [editor, readOnly]);
+
   useImperativeHandle(ref, () => ({
     setContent(content) {
-      editor.commands.setContent(content);
+      editor?.commands.setContent(content);
     },
   }));
 
@@ -56,35 +65,44 @@ const RichTextEditor = forwardRef(function RichTextEditor(
 
   return (
     <Editor editor={editor} styles={fill ? fillStyles : undefined} {...props}>
-      <Editor.Toolbar sticky stickyOffset={60}>
-        <Editor.ControlsGroup>
-          <Editor.Bold />
-          <Editor.Italic />
-          <Editor.Underline />
-          <Editor.Strikethrough />
-          <Editor.Highlight />
-        </Editor.ControlsGroup>
+      {!readOnly && (
+        <Editor.Toolbar sticky stickyOffset={60}>
+          <Editor.ControlsGroup>
+            <Editor.Bold />
+            <Editor.Italic />
+            <Editor.Underline />
+            <Editor.Strikethrough />
+            <Editor.Highlight />
+          </Editor.ControlsGroup>
 
-        <Editor.ControlsGroup>
-          <Editor.BulletList />
-          <Editor.OrderedList />
-        </Editor.ControlsGroup>
+          <Editor.ControlsGroup>
+            <Editor.BulletList />
+            <Editor.OrderedList />
+          </Editor.ControlsGroup>
 
-        <Editor.ControlsGroup>
-          <Editor.Link />
-          <Editor.Unlink />
-        </Editor.ControlsGroup>
+          <Editor.ControlsGroup>
+            <Editor.Link />
+            <Editor.Unlink />
+          </Editor.ControlsGroup>
 
-        <Editor.ControlsGroup>
-          <Editor.Code />
-          <Editor.Blockquote />
-        </Editor.ControlsGroup>
-      </Editor.Toolbar>
+          <Editor.ControlsGroup>
+            <Editor.Code />
+            <Editor.Blockquote />
+          </Editor.ControlsGroup>
+        </Editor.Toolbar>
+      )}
 
       <Editor.Content
-        bg={computedColorScheme === "dark" ? "dark.6" : "white"}
+        bg={computedColorScheme === "dark" ? "dark.6" : readOnly ? "gray.0" : "white"}
         className={classes.content}
-        style={{ "--rich-text-editor-height": `${height}px` }}
+        tabIndex={readOnly ? -1 : undefined}
+        onMouseDown={(e) => {
+          if (readOnly) e.preventDefault();
+        }}
+        style={{
+          "--rich-text-editor-height": `${height}px`,
+          ...(readOnly ? { opacity: 0.85, cursor: "not-allowed", pointerEvents: "none" } : {}),
+        }}
       />
     </Editor>
   );

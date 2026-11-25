@@ -107,6 +107,7 @@ class Task extends Model implements AuditableContract, Sortable
         'project:id,name',
         'createdByUser:id,name,avatar',
         'assignedToUser:id,name,avatar',
+        'assignees:id,name,avatar',
         'subscribedUsers:id',
         'labels:id,name,color',
         'priority:id,label,color,order',
@@ -124,7 +125,7 @@ class Task extends Model implements AuditableContract, Sortable
     {
         return [
             (new WhereInFilter('group_id'))->setQueryName('groups'),
-            (new WhereInFilter('assigned_to_user_id'))->setQueryName('assignees'),
+            (new WhereHasFilter('assignees'))->setQueryName('assignees'),
             (new TaskOverdueFilter('due_on'))->setQueryName('overdue'),
             (new IsNullFilter('due_on'))->setQueryName('not_set'),
             (new TaskCompletedFilter('completed_at'))->setQueryName('status'),
@@ -264,11 +265,49 @@ class Task extends Model implements AuditableContract, Sortable
     }
 
     /**
-     * Usuario asignado a la tarea
+     * Usuario asignado principal a la tarea (compatibilidad)
      */
     public function assignedToUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_to_user_id');
+    }
+
+    /**
+     * Lista de personas asignadas a cumplir la tarea
+     */
+    public function assignees(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'task_assignees')->withTimestamps();
+    }
+
+    /**
+     * Solo el admin/superadmin que creó la tarea puede modificar nombre y descripción.
+     */
+    public function canEditNameAndDescription(User $user): bool
+    {
+        if (! ($user->isAdmin() || $user->isSuperAdmin())) {
+            return false;
+        }
+
+        if ($this->created_by_user_id !== null) {
+            return (int) $this->created_by_user_id === (int) $user->id;
+        }
+
+        return true;
+    }
+
+    /**
+     * Verifica si el usuario es una de las personas asignadas a cumplir la tarea.
+     */
+    public function isAssignedTo(User $user): bool
+    {
+        if ((int) $this->assigned_to_user_id === (int) $user->id) {
+            return true;
+        }
+
+        return $this->relationLoaded('assignees')
+            ? $this->assignees->contains('id', $user->id)
+            : $this->assignees()->where('users.id', $user->id)->exists();
     }
 
     /**

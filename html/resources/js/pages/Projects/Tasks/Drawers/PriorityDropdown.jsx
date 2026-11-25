@@ -11,7 +11,8 @@ import {
 } from '@mantine/core';
 import { IconX } from '@tabler/icons-react';
 
-export default function PriorityDropdown({ value, onChange, ...props }) {
+export default function PriorityDropdown({ value, onChange, disabled = false, ...props }) {
+  const isDisabled = disabled || !can('edit task');
   const combobox = useCombobox({
     onDropdownClose: () => combobox.resetSelectedOption(),
   });
@@ -20,32 +21,36 @@ export default function PriorityDropdown({ value, onChange, ...props }) {
   const selectedPriority = priorities?.find((p) => p.id === value);
 
   const handleSelect = (val) => {
+    if (isDisabled) return;
     onChange(val ? Number(val) : null);
     combobox.closeDropdown();
   };
 
   const handleClear = (e) => {
     e.stopPropagation();
+    if (isDisabled) return;
     onChange(null);
   };
 
   return (
-    <Box {...props}>
+    <Box {...props} style={isDisabled ? { pointerEvents: 'none', opacity: 0.7 } : undefined}>
       <Input.Label>Prioridad</Input.Label>
       <Combobox
         store={combobox}
         onOptionSubmit={handleSelect}
         withinPortal={false}
-        disabled={!can('edit task')}
+        disabled={isDisabled}
       >
         <Combobox.Target>
           <InputBase
             component='button'
             type='button'
-            pointer
-            onClick={() => combobox.toggleDropdown()}
+            pointer={!isDisabled}
+            disabled={isDisabled}
+            tabIndex={isDisabled ? -1 : undefined}
+            onClick={() => !isDisabled && combobox.toggleDropdown()}
             rightSection={
-              selectedPriority && can('edit task') ? (
+              isDisabled ? null : selectedPriority ? (
                 <IconX
                   size={14}
                   style={{ cursor: 'pointer' }}
@@ -55,7 +60,7 @@ export default function PriorityDropdown({ value, onChange, ...props }) {
                 <Combobox.Chevron />
               )
             }
-            rightSectionPointerEvents={selectedPriority ? 'all' : 'none'}
+            rightSectionPointerEvents={!isDisabled && selectedPriority ? 'all' : 'none'}
           >
             {selectedPriority ? (
               <Group gap={7}>

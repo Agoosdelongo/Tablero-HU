@@ -3,8 +3,10 @@ import { usePage } from '@inertiajs/react';
 
 import useTasksStore from '@/hooks/store/useTasksStore';
 
+// Selector de prioridad de la tarea en la vista Lista (solo editable por admin).
 export default function TaskPriorityDropdown({ task }) {
-  const { priorities } = usePage().props;
+  const { priorities, auth: { user } } = usePage().props;
+  const isAdmin = Boolean(user?.is_admin || user?.is_super_admin);
   const { updateTaskProperty } = useTasksStore();
 
   const currentPriority = priorities.find(
@@ -20,6 +22,26 @@ export default function TaskPriorityDropdown({ task }) {
           ? 'green'
           : 'gray';
 
+  if (!isAdmin) {
+    return (
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          backgroundColor: `var(--mantine-color-${currentColor}-1)`,
+          color: `var(--mantine-color-${currentColor}-8)`,
+          fontWeight: 600,
+          fontSize: '12px',
+          padding: '5px 10px',
+          borderRadius: '4px',
+          pointerEvents: 'none',
+          userSelect: 'none',
+        }}
+      >
+        {currentPriority?.label ?? 'Sin prioridad'}
+      </div>
+    );
+  }
+
   return (
     <div onClick={e => e.stopPropagation()}>
       <Select
@@ -34,12 +56,14 @@ export default function TaskPriorityDropdown({ task }) {
             label: priority.label,
           })),
         ]}
-        allowDeselect
+        allowDeselect={isAdmin}
         searchable={false}
+        disabled={!isAdmin}
         size="xs"
         radius="sm"
         variant="filled"
         onChange={value => {
+          if (!isAdmin) return;
           const priority =
             priorities.find(p => p.id === Number(value)) ?? null;
 

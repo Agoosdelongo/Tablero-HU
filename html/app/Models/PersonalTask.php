@@ -244,7 +244,8 @@ class PersonalTask extends Model
      */
     public function buildIcsContent(string $method = 'REQUEST'): string
     {
-        $uid = "personal-task-{$this->id}@tahu.local";
+        $host = parse_url((string) config('app.url'), PHP_URL_HOST) ?: 'tahu.local';
+        $uid = "personal-task-{$this->id}@{$host}";
         $nowUtc = now()->utc()->format('Ymd\THis\Z');
 
         if ($this->scheduled_time && $this->scheduled_for) {
