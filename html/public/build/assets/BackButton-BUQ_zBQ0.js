@@ -1,1 +1,0 @@
-import{j as r,B as o}from"./app-Cc4pSYNg.js";import{a as e}from"./route-D8_bK2AG.js";import{I as n}from"./IconChevronLeft-h0snQAV4.js";function m({route:t}){return r.jsx(o,{leftSection:r.jsx(n,{size:14}),radius:"xl",variant:"transparent",size:"sm",onClick:()=>e(t),children:"Volver"})}export{m as B};

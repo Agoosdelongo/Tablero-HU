@@ -33,7 +33,7 @@ export default function PriorityDropdown({ value, onChange, disabled = false, ..
   };
 
   return (
-    <Box {...props}>
+    <Box {...props} style={isDisabled ? { pointerEvents: 'none', opacity: 0.7 } : undefined}>
       <Input.Label>Prioridad</Input.Label>
       <Combobox
         store={combobox}
@@ -47,9 +47,10 @@ export default function PriorityDropdown({ value, onChange, disabled = false, ..
             type='button'
             pointer={!isDisabled}
             disabled={isDisabled}
+            tabIndex={isDisabled ? -1 : undefined}
             onClick={() => !isDisabled && combobox.toggleDropdown()}
             rightSection={
-              selectedPriority && !isDisabled ? (
+              isDisabled ? null : selectedPriority ? (
                 <IconX
                   size={14}
                   style={{ cursor: 'pointer' }}
@@ -59,7 +60,7 @@ export default function PriorityDropdown({ value, onChange, disabled = false, ..
                 <Combobox.Chevron />
               )
             }
-            rightSectionPointerEvents={selectedPriority ? 'all' : 'none'}
+            rightSectionPointerEvents={!isDisabled && selectedPriority ? 'all' : 'none'}
           >
             {selectedPriority ? (
               <Group gap={7}>

@@ -1,4 +1,5 @@
 import { Checkbox } from '@mantine/core';
+import { usePage } from '@inertiajs/react';
 import { useMemo } from 'react';
 
 import ColumnHeader from './Components/ColumnHeader';
@@ -8,6 +9,8 @@ import useTasksStore from '@/hooks/store/useTasksStore';
 import classes from './ListView.module.css';
 
 export default function HeaderRow({ widths, setWidth, allTasks = [] }) {
+  const { auth: { user } } = usePage().props;
+  const isAdmin = Boolean(user?.is_admin || user?.is_super_admin);
   const { selectedTaskIds, toggleTaskSelection, selectAllTasks, clearTaskSelection } = useTasksStore();
 
   // Calcular si todos están seleccionados
@@ -36,7 +39,7 @@ export default function HeaderRow({ widths, setWidth, allTasks = [] }) {
       <div className={classes.dragHandle}></div>
 
       <div className={classes.checkbox}>
-          {can('archive task') && (
+          {isAdmin && can('archive task') && (
               <Checkbox
                   size='xs'
                   checked={isAllSelected}

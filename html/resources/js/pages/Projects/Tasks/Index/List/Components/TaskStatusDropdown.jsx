@@ -15,6 +15,27 @@ export default function TaskStatusDropdown({ task }) {
   const currentGroup = groups.find(g => g.id === task.group_id);
   const currentColor = getGroupSelectColorName(currentGroup);
 
+  if (!isAdmin) {
+    return (
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          backgroundColor: `var(--mantine-color-${currentColor}-1)`,
+          color: `var(--mantine-color-${currentColor}-8)`,
+          fontWeight: 600,
+          fontSize: '12px',
+          padding: '5px 10px',
+          borderRadius: '4px',
+          textTransform: 'uppercase',
+          pointerEvents: 'none',
+          userSelect: 'none',
+        }}
+      >
+        {currentGroup?.name ?? 'Sin estado'}
+      </div>
+    );
+  }
+
   return (
     <div onClick={e => e.stopPropagation()}>
       <Select

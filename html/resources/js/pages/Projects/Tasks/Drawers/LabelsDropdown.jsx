@@ -29,7 +29,7 @@ export default function LabelsDropdown({ items, selected, onChange, disabled = f
   };
 
   return (
-    <Box {...props}>
+    <Box {...props} style={isDisabled ? { pointerEvents: "none", opacity: 0.7 } : undefined}>
       <Input.Label>Etiquetas</Input.Label>
       <Combobox
         store={combobox}
@@ -41,13 +41,16 @@ export default function LabelsDropdown({ items, selected, onChange, disabled = f
               <PillsInput
                 pointer={!isDisabled}
                 disabled={isDisabled}
+                tabIndex={isDisabled ? -1 : undefined}
                 onClick={() => !isDisabled && combobox.toggleDropdown()}
                 rightSection={
-                  <IconSelector
-                    size={14}
-                    stroke={1.5}
-                    color="var(--mantine-color-dimmed)"
-                  />
+                  isDisabled ? null : (
+                    <IconSelector
+                      size={14}
+                      stroke={1.5}
+                      color="var(--mantine-color-dimmed)"
+                    />
+                  )
                 }
                 rightSectionPointerEvents="none"
               >
@@ -55,6 +58,7 @@ export default function LabelsDropdown({ items, selected, onChange, disabled = f
               {selected.length > 0 ? (
                 selected.map((id) => {
                   const label = items.find((i) => i.id === id);
+                  if (!label) return null;
 
                   return (
                     <Label
@@ -62,7 +66,7 @@ export default function LabelsDropdown({ items, selected, onChange, disabled = f
                       name={label.name}
                       color={label.color}
                       size={11}
-                      onRemove={() => handleValueRemove(label)}
+                      onRemove={isDisabled ? undefined : () => handleValueRemove(label)}
                     />
                   );
                 })

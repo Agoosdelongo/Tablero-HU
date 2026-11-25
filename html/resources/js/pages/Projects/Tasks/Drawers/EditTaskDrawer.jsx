@@ -191,8 +191,10 @@ export function EditTaskDrawer() {
             radius='xl'
             color='green'
             checked={task?.completed_at !== null}
-            onChange={e => complete(task, e.currentTarget.checked)}
-            className={can('complete task') ? classes.checkbox : classes.disabledCheckbox}
+            disabled={!isAdmin}
+            onChange={e => isAdmin && complete(task, e.currentTarget.checked)}
+            className={isAdmin && can('complete task') ? classes.checkbox : classes.disabledCheckbox}
+            style={!isAdmin ? { pointerEvents: 'none', opacity: 0.6 } : undefined}
           />
           <Text
             fz={rem(27)}
@@ -251,6 +253,8 @@ export function EditTaskDrawer() {
                 error={data.name.length === 0}
                 readOnly={!canEditNameAndDescription}
                 disabled={!canEditNameAndDescription}
+                tabIndex={!canEditNameAndDescription ? -1 : undefined}
+                styles={!canEditNameAndDescription ? { root: { pointerEvents: 'none' }, input: { cursor: 'not-allowed' } } : undefined}
               />
 
               {/* Descripción */}
@@ -303,6 +307,9 @@ export function EditTaskDrawer() {
                 }))}
                 readOnly={!isAdmin}
                 disabled={!isAdmin}
+                tabIndex={!isAdmin ? -1 : undefined}
+                rightSection={!isAdmin ? null : undefined}
+                styles={!isAdmin ? { root: { pointerEvents: 'none' }, input: { cursor: 'not-allowed' } } : undefined}
                 size='sm'
               />
 
@@ -322,6 +329,9 @@ export function EditTaskDrawer() {
                 ]}
                 readOnly={!isAdmin}
                 disabled={!isAdmin}
+                tabIndex={!isAdmin ? -1 : undefined}
+                rightSection={!isAdmin ? null : undefined}
+                styles={!isAdmin ? { root: { pointerEvents: 'none' }, input: { cursor: 'not-allowed' } } : undefined}
                 size='sm'
               />
 
@@ -332,7 +342,7 @@ export function EditTaskDrawer() {
                   ? 'Seleccioná las personas a las que les asignás la tarea.'
                   : 'Solo el administrador puede modificar las personas asignadas.'}
                 placeholder={!data.assigned_user_ids.length ? 'Sin personas asignadas' : null}
-                searchable
+                searchable={isAdmin}
                 mt='ms'
                 value={data.assigned_user_ids}
                 onChange={values => updateValue('assigned_user_ids', values)}
@@ -342,6 +352,9 @@ export function EditTaskDrawer() {
                 }))}
                 readOnly={!isAdmin}
                 disabled={!isAdmin}
+                tabIndex={!isAdmin ? -1 : undefined}
+                rightSection={!isAdmin ? null : undefined}
+                styles={!isAdmin ? { root: { pointerEvents: 'none' }, input: { cursor: 'not-allowed' } } : undefined}
                 size='sm'
               />
 
@@ -353,7 +366,10 @@ export function EditTaskDrawer() {
                 description='Se completa automáticamente al crear la tarea.'
                 placeholder='Automática'
                 value={data.start_on}
+                readOnly
                 disabled
+                tabIndex={-1}
+                styles={{ root: { pointerEvents: 'none' }, input: { cursor: 'not-allowed' } }}
                 size='sm'
               />
 
@@ -372,6 +388,8 @@ export function EditTaskDrawer() {
                 onChange={value => updateValue('due_on', value)}
                 readOnly={!canEditDueDate}
                 disabled={!canEditDueDate}
+                tabIndex={!canEditDueDate ? -1 : undefined}
+                styles={!canEditDueDate ? { root: { pointerEvents: 'none' }, input: { cursor: 'not-allowed' } } : undefined}
                 size='sm'
               />
 
@@ -407,6 +425,9 @@ export function EditTaskDrawer() {
                 }))}
                 readOnly={!isAdmin}
                 disabled={!isAdmin}
+                tabIndex={!isAdmin ? -1 : undefined}
+                rightSection={!isAdmin ? null : undefined}
+                styles={!isAdmin ? { root: { pointerEvents: 'none' }, input: { cursor: 'not-allowed' } } : undefined}
                 size='sm'
               />
             </div>

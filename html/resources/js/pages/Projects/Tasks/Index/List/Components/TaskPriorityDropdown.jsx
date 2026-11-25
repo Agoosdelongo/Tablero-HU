@@ -22,6 +22,26 @@ export default function TaskPriorityDropdown({ task }) {
           ? 'green'
           : 'gray';
 
+  if (!isAdmin) {
+    return (
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          backgroundColor: `var(--mantine-color-${currentColor}-1)`,
+          color: `var(--mantine-color-${currentColor}-8)`,
+          fontWeight: 600,
+          fontSize: '12px',
+          padding: '5px 10px',
+          borderRadius: '4px',
+          pointerEvents: 'none',
+          userSelect: 'none',
+        }}
+      >
+        {currentPriority?.label ?? 'Sin prioridad'}
+      </div>
+    );
+  }
+
   return (
     <div onClick={e => e.stopPropagation()}>
       <Select

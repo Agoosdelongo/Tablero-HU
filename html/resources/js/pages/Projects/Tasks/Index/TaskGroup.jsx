@@ -14,7 +14,7 @@ export default function TaskGroup({ group, tasks, ...props }) {
   const isAdmin = Boolean(user?.is_admin || user?.is_super_admin);
 
   return (
-    <Draggable draggableId={group.id.toString()} {...props}>
+    <Draggable draggableId={group.id.toString()} isDragDisabled={!isAdmin} {...props}>
       {(provided, snapshot) => (
         <div
           className={`${classes.row} ${snapshot.isDragging && classes.itemDragging}`}
@@ -24,13 +24,13 @@ export default function TaskGroup({ group, tasks, ...props }) {
           <div className={classes.group}
            style={group.color ? { backgroundColor: group.color } : undefined}>
             <Group>
-              <div {...provided.dragHandleProps} className={classes.dragHandle}>
+              <div {...(isAdmin ? provided.dragHandleProps : {})} className={classes.dragHandle}>
                 <IconGripVertical
                   style={{
                     width: rem(18),
                     height: rem(18),
                     display:
-                      can("reorder task group") && !route().params.archived ? "inline" : "none",
+                      isAdmin && can("reorder task group") && !route().params.archived ? "inline" : "none",
                   }}
                   stroke={1.5}
                 />
@@ -38,7 +38,7 @@ export default function TaskGroup({ group, tasks, ...props }) {
               <Text size="xl" fw={700}>
                 {translateGroupName(group.name)}
               </Text>
-              <TaskGroupActions group={group} className={classes.actions} />
+              {isAdmin && <TaskGroupActions group={group} className={classes.actions} />}
             </Group>
             {!route().params.archived && isAdmin && can("create task") && (
               <Tooltip label="Add task" openDelay={1000} withArrow>

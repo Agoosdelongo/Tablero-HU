@@ -21,6 +21,7 @@ export default function TaskCard({ task, index }) {
     <Draggable
       draggableId={'task-' + task.id}
       index={index}
+      isDragDisabled={!isAdmin}
     >
       {(provided, snapshot) => (
         <div
@@ -40,7 +41,7 @@ export default function TaskCard({ task, index }) {
               />
             </Tooltip>
           )}
-          <div {...(can('reorder task') && provided.dragHandleProps)}>
+          <div {...(isAdmin && can('reorder task') ? provided.dragHandleProps : {})}>
             <Group
               wrap='nowrap'
               justify='start'
@@ -145,7 +146,7 @@ export default function TaskCard({ task, index }) {
                   <IconPlus size={16} />
                 </ActionIcon>
               )}{' '}
-              {(can('archive task') || can('restore task')) && (
+              {isAdmin && (can('archive task') || can('restore task')) && (
                 <TaskActions
                   task={task}
                   className={classes.actions}

@@ -39,7 +39,10 @@ export default function TaskDueDateDropdown({ task }) {
             value={parseDate(task.due_on)}
             valueFormat="DD/MM/YYYY"
             clearable={canEditDueDate}
+            readOnly={!canEditDueDate}
             disabled={!canEditDueDate}
+            tabIndex={!canEditDueDate ? -1 : undefined}
+            styles={!canEditDueDate ? { root: { pointerEvents: 'none' }, input: { cursor: 'not-allowed' } } : undefined}
             size="xs"
             radius="sm"
             variant="filled"

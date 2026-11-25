@@ -53,6 +53,7 @@ export default function TaskRow({
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: task.id,
     data: { task },
+    disabled: !isAdmin,
   });
 
   const isBeingDragged = dragState?.activeTask?.id === task.id;
@@ -79,18 +80,21 @@ export default function TaskRow({
     >
       <div
         className={classes.dragHandle}
-        {...attributes}
-        {...listeners}
+        {...(isAdmin ? attributes : {})}
+        {...(isAdmin ? listeners : {})}
         onClick={e => e.stopPropagation()}
+        style={!isAdmin ? { pointerEvents: 'none' } : undefined}
       >
-        <IconGripVertical
-          size={14}
-          color='var(--mantine-color-gray-5)'
-        />
+        {isAdmin && (
+          <IconGripVertical
+            size={14}
+            color='var(--mantine-color-gray-5)'
+          />
+        )}
       </div>
 
       <div className={classes.checkbox}>
-          {can('archive task') && (
+          {isAdmin && can('archive task') && (
               <Checkbox
                   size='xs'
                   checked={selectedTaskIds.includes(task.id)}
@@ -246,7 +250,7 @@ export default function TaskRow({
         className={classes.actions}
         onClick={e => e.stopPropagation()}
       >
-        <TaskActions task={task} />
+        {isAdmin && <TaskActions task={task} />}
       </div>
     </div>
   );

@@ -212,6 +212,11 @@ class TaskController extends Controller
     {
         $this->authorize('create', [Task::class, $project]);
 
+        $user = auth()->user();
+        if (! ($user->isAdmin() || $user->isSuperAdmin())) {
+            abort(403, 'Solo un administrador puede crear actividades.');
+        }
+
         (new CreateTask)->create($project, $request->validated());
 
         return redirect()->route('projects.tasks', $project)->success('Actividad añadida', 'Una nueva actividad se añadió con éxito.');
@@ -285,6 +290,13 @@ class TaskController extends Controller
     {
         $this->authorize('reorder', [Task::class, $project]);
 
+        $user = auth()->user();
+        if (! ($user->isAdmin() || $user->isSuperAdmin())) {
+            return response()->json([
+                'message' => 'Solo un administrador puede reordenar actividades.',
+            ], 403);
+        }
+
         Task::setNewOrder($request->ids);
 
         TaskOrderChanged::dispatch(
@@ -351,6 +363,13 @@ class TaskController extends Controller
     {
         $this->authorize('reorder', [Task::class, $project]);
 
+        $user = auth()->user();
+        if (! ($user->isAdmin() || $user->isSuperAdmin())) {
+            return response()->json([
+                'message' => 'Solo un administrador puede reorganizar la jerarquía de actividades.',
+            ], 403);
+        }
+
         $request->validate([
             'task_id' => ['required', 'exists:tasks,id'],
             'parent_task_id' => ['nullable', 'exists:tasks,id'],
@@ -402,6 +421,13 @@ class TaskController extends Controller
     {
         $this->authorize('complete', [Task::class, $project]);
 
+        $user = auth()->user();
+        if (! ($user->isAdmin() || $user->isSuperAdmin())) {
+            return response()->json([
+                'message' => 'Solo un administrador puede marcar o desmarcar una actividad como completada.',
+            ], 403);
+        }
+
         $task->update([
             'completed_at' => ($request->completed === true) ? now() : null,
         ]);
@@ -417,6 +443,11 @@ class TaskController extends Controller
     {
         $this->authorize('delete', [$task, $project]);
 
+        $user = auth()->user();
+        if (! ($user->isAdmin() || $user->isSuperAdmin())) {
+            abort(403, 'Solo un administrador puede archivar actividades.');
+        }
+
         $task->archiveWithChildren(auth()->id());
         TaskDeleted::dispatch($task->id, $task->project_id);
 
@@ -430,6 +461,11 @@ class TaskController extends Controller
     {
 
         $this->authorize('restore', [$task, $project]);
+
+        $user = auth()->user();
+        if (! ($user->isAdmin() || $user->isSuperAdmin())) {
+            abort(403, 'Solo un administrador puede restaurar actividades.');
+        }
 
         $task->restoreWithChildren();
         TaskRestored::dispatch($task);
@@ -447,6 +483,13 @@ class TaskController extends Controller
      */
     public function bulkArchive(Request $request, Project $project): JsonResponse
     {
+        $user = auth()->user();
+        if (! ($user->isAdmin() || $user->isSuperAdmin())) {
+            return response()->json([
+                'message' => 'Solo un administrador puede archivar actividades.',
+            ], 403);
+        }
+
         $request->validate([
             'ids' => ['required', 'array'],
             'ids.*' => ['integer', 'exists:tasks,id'],

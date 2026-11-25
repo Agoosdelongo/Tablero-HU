@@ -95,9 +95,13 @@ const RichTextEditor = forwardRef(function RichTextEditor(
       <Editor.Content
         bg={computedColorScheme === "dark" ? "dark.6" : readOnly ? "gray.0" : "white"}
         className={classes.content}
+        tabIndex={readOnly ? -1 : undefined}
+        onMouseDown={(e) => {
+          if (readOnly) e.preventDefault();
+        }}
         style={{
           "--rich-text-editor-height": `${height}px`,
-          ...(readOnly ? { opacity: 0.85, cursor: "not-allowed" } : {}),
+          ...(readOnly ? { opacity: 0.85, cursor: "not-allowed", pointerEvents: "none" } : {}),
         }}
       />
     </Editor>
