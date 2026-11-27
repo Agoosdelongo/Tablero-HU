@@ -121,6 +121,7 @@ export function EditTaskDrawer() {
     taskAssignedIds.includes(String(user?.id));
   const canEditDueDate = isAdmin || isCurrentUserAssigned;
   const canUploadAttachment = isAdmin || isCurrentUserAssigned;
+  const canChangeStatus = isAdmin || can('edit task');
 
   const updateValue = (field, value) => {
     if ((field === 'name' || field === 'description') && !canEditNameAndDescription) {
@@ -132,7 +133,10 @@ export function EditTaskDrawer() {
     if (field === 'due_on' && !canEditDueDate) {
       return;
     }
-    if ((field === 'assigned_user_ids' || field === 'assigned_to_user_id' || field === 'subscribed_users' || field === 'priority_id' || field === 'labels' || field === 'issue_type' || field === 'group_id') && !isAdmin) {
+    if (field === 'group_id' && !canChangeStatus) {
+      return;
+    }
+    if ((field === 'assigned_user_ids' || field === 'assigned_to_user_id' || field === 'subscribed_users' || field === 'priority_id' || field === 'labels' || field === 'issue_type') && !isAdmin) {
       return;
     }
 
@@ -159,6 +163,10 @@ export function EditTaskDrawer() {
       };
       const payloadValue = field === 'assigned_user_ids' ? value.map(Number) : value;
       updateTaskProperty(task, field, payloadValue, options[field]);
+    } else if (field === 'group_id') {
+      const groupId = Number(value);
+      const group = taskGroups.find(g => Number(g.id) === groupId) ?? null;
+      updateTaskProperty(task, field, groupId, group);
     } else if (field === 'priority_id') {
       const priority = value ? priorities.find(p => p.id === value) : null;
       updateTaskProperty(task, field, value, priority);
@@ -305,11 +313,11 @@ export function EditTaskDrawer() {
                   value: i.id.toString(),
                   label: i.name,
                 }))}
-                readOnly={!isAdmin}
-                disabled={!isAdmin}
-                tabIndex={!isAdmin ? -1 : undefined}
-                rightSection={!isAdmin ? null : undefined}
-                styles={!isAdmin ? { root: { pointerEvents: 'none' }, input: { cursor: 'not-allowed' } } : undefined}
+                readOnly={!canChangeStatus}
+                disabled={!canChangeStatus}
+                tabIndex={!canChangeStatus ? -1 : undefined}
+                rightSection={!canChangeStatus ? null : undefined}
+                styles={!canChangeStatus ? { root: { pointerEvents: 'none' }, input: { cursor: 'not-allowed' } } : undefined}
                 size='sm'
               />
 

@@ -155,4 +155,4 @@ html/
 └── DOCUMENTACION.md                        # Referencia técnica detallada de arquitectura y reglas
 ```
 
-Para la referencia técnica completa de endpoints, migraciones, componentes y flujos internos, ver [html/DOCUMENTACION.md](html/DOCUMENTACION.md).
+Para la referencia técnica completa de **reglas por rol, flujo de Google Calendar, tabla de arreglos de producción, runbook de despliegue seguro y solución de problemas**, ver [html/DOCUMENTACION.md](html/DOCUMENTACION.md).

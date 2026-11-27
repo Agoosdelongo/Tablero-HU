@@ -13,10 +13,11 @@ import classes from "./css/TaskRow.module.css";
 export default function TaskRow({ task, index }) {
   const { auth: { user } } = usePage().props;
   const isAdmin = Boolean(user?.is_admin || user?.is_super_admin);
+  const canDragStatus = isAdmin || can("reorder task");
   const { complete } = useTasksStore();
   const { openEditTask } = useTaskDrawerStore();
   return (
-    <Draggable draggableId={"task-" + task.id} index={index} isDragDisabled={!isAdmin}>
+    <Draggable draggableId={"task-" + task.id} index={index} isDragDisabled={!canDragStatus}>
       {(provided, snapshot) => (
         <Flex
           {...provided.draggableProps}
@@ -36,12 +37,12 @@ export default function TaskRow({ task, index }) {
           )}
 
           <Group gap="sm" wrap="nowrap" w="100%">
-            <div {...(isAdmin ? provided.dragHandleProps : {})}>
+            <div {...(canDragStatus ? provided.dragHandleProps : {})}>
               <IconGripVertical
                 style={{
                   width: rem(18),
                   height: rem(18),
-                  display: isAdmin && can("reorder task") ? "inline" : "none",
+                  display: canDragStatus ? "inline" : "none",
                 }}
                 stroke={1.5}
                 className={classes.dragHandle}

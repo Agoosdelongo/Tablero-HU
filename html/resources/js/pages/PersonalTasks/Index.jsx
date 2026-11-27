@@ -21,6 +21,7 @@ import {
     Menu,
     Modal,
     Pill,
+    Popover,
     ScrollArea,
     Select,
     Stack,
@@ -33,7 +34,7 @@ import {
     useCombobox,
     rem,
 } from '@mantine/core';
-import { DateInput, TimeInput } from '@mantine/dates';
+import { DateInput, DatePicker, DatesProvider, TimeInput } from '@mantine/dates';
 import { useDisclosure } from '@mantine/hooks';
 import {
     IconAdjustmentsHorizontal,
@@ -41,8 +42,6 @@ import {
     IconBrandGoogle,
     IconCalendarCheck,
     IconCalendarEvent,
-    IconChevronLeft,
-    IconChevronRight,
     IconCircleCheck,
     IconClockExclamation,
     IconDownload,
@@ -977,6 +976,59 @@ function DailySchedule({ tasks, onEdit, onDragCreate }) {
     );
 }
 
+// ─── Minicalendario lateral para navegación rápida entre fechas ───
+
+function MiniCalendarCard({ viewingDate, today, isToday, onSelectDate }) {
+    const selectedDate = new Date(`${viewingDate}T12:00:00`);
+    const [displayMonth, setDisplayMonth] = useState(selectedDate);
+    const [lastViewingDate, setLastViewingDate] = useState(viewingDate);
+
+    if (viewingDate !== lastViewingDate) {
+        setLastViewingDate(viewingDate);
+        setDisplayMonth(new Date(`${viewingDate}T12:00:00`));
+    }
+
+    function handleChange(val) {
+        if (!val) return;
+        onSelectDate(dayjs(val).format('YYYY-MM-DD'));
+    }
+
+    return (
+        <Card withBorder radius='md' p={0} className={classes.sideCard}>
+            <div className={classes.sideCardHeader}>
+                <Group justify='space-between' align='center'>
+                    <Group gap={6}>
+                        <IconCalendarEvent size={14} className={classes.dateChipIcon} />
+                        <Text size='xs' fw={700} tt='uppercase' c='dimmed'>
+                            Calendario
+                        </Text>
+                    </Group>
+                    {!isToday && (
+                        <Button
+                            size='compact-xs'
+                            variant='light'
+                            onClick={() => onSelectDate(today)}
+                        >
+                            Hoy
+                        </Button>
+                    )}
+                </Group>
+            </div>
+            <div className={classes.miniCalendarBody}>
+                <DatesProvider settings={{ locale: 'es', firstDayOfWeek: 1 }}>
+                    <DatePicker
+                        size='xs'
+                        value={selectedDate}
+                        date={displayMonth}
+                        onDateChange={setDisplayMonth}
+                        onChange={handleChange}
+                    />
+                </DatesProvider>
+            </div>
+        </Card>
+    );
+}
+
 // ─── Card de pendientes anteriores ───────────────────────────────
 
 function OverdueCard({ tasks, onEdit }) {
@@ -1148,6 +1200,7 @@ const PersonalTasksIndex = () => {
 
     const [drawerOpened, { open: openDrawer, close: closeDrawer }] = useDisclosure(false);
     const [googleModalOpened, { open: openGoogleModal, close: closeGoogleModal }] = useDisclosure(false);
+    const [calendarPopoverOpened, setCalendarPopoverOpened] = useState(false);
     const [editingTask, setEditingTask] = useState(null);
 
     function handleNewTask() { setEditingTask(null); openDrawer(); }
@@ -1171,8 +1224,6 @@ const PersonalTasksIndex = () => {
         router.get(currentUrl(), newParams, { preserveState: true, preserveScroll: true, replace: true });
     }
 
-    function goToPrev()  { navigateTo(dayjs(viewingDate).subtract(1, 'day').format('YYYY-MM-DD')); }
-    function goToNext()  { navigateTo(dayjs(viewingDate).add(1, 'day').format('YYYY-MM-DD')); }
     function goToToday() { navigateTo(today); }
 
     // Ordenamiento (aplica a la sección "sin horario" y a la card de prioridades)
@@ -1229,18 +1280,42 @@ const PersonalTasksIndex = () => {
 
             {/* ── Toolbar ── */}
             <div className={classes.toolbar}>
-                {/* Navegación de fecha */}
+                {/* Selector rápido de fecha con minicalendario */}
                 <Group gap='xs' align='center'>
-                    <ActionIcon variant='subtle' color='gray' size='sm' onClick={goToPrev}>
-                        <IconChevronLeft size={15} />
-                    </ActionIcon>
-                    <Group gap={6} align='center' className={classes.dateChip}>
-                        <IconCalendarCheck size={14} className={classes.dateChipIcon} />
-                        <Text size='sm' fw={500}>{dateLabel}</Text>
-                    </Group>
-                    <ActionIcon variant='subtle' color='gray' size='sm' onClick={goToNext}>
-                        <IconChevronRight size={15} />
-                    </ActionIcon>
+                    <Popover
+                        opened={calendarPopoverOpened}
+                        onChange={setCalendarPopoverOpened}
+                        position='bottom-start'
+                        shadow='md'
+                        withinPortal
+                    >
+                        <Popover.Target>
+                            <Group
+                                gap={6}
+                                align='center'
+                                className={classes.dateChip}
+                                onClick={() => setCalendarPopoverOpened(o => !o)}
+                                role='button'
+                                tabIndex={0}
+                            >
+                                <IconCalendarCheck size={14} className={classes.dateChipIcon} />
+                                <Text size='sm' fw={500}>{dateLabel}</Text>
+                            </Group>
+                        </Popover.Target>
+                        <Popover.Dropdown p='xs'>
+                            <DatesProvider settings={{ locale: 'es', firstDayOfWeek: 1 }}>
+                                <DatePicker
+                                    size='xs'
+                                    value={new Date(`${viewingDate}T12:00:00`)}
+                                    onChange={val => {
+                                        if (!val) return;
+                                        navigateTo(dayjs(val).format('YYYY-MM-DD'));
+                                        setCalendarPopoverOpened(false);
+                                    }}
+                                />
+                            </DatesProvider>
+                        </Popover.Dropdown>
+                    </Popover>
                     {!isToday && (
                         <Button size='xs' variant='light' onClick={goToToday}>Hoy</Button>
                     )}
@@ -1296,6 +1371,12 @@ const PersonalTasksIndex = () => {
 
                 {/* Sidebar */}
                 <div className={classes.sidebar}>
+                    <MiniCalendarCard
+                        viewingDate={viewingDate}
+                        today={today}
+                        isToday={isToday}
+                        onSelectDate={navigateTo}
+                    />
                     <OverdueCard tasks={overdueTasks} onEdit={handleEdit} />
                     <PrioritiesCard tasks={dateTasks} priorities={priorities} onEdit={handleEdit} />
                 </div>

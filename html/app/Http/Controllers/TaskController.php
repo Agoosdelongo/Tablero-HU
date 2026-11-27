@@ -266,10 +266,10 @@ class TaskController extends Controller
             ], 403);
         }
 
-        // Permite modificar estado, tipo, prioridad y etiquetas solo al admin.
-        if ((array_key_exists('priority_id', $validated) || array_key_exists('labels', $validated) || array_key_exists('issue_type', $validated) || array_key_exists('group_id', $validated)) && ! ($user->isAdmin() || $user->isSuperAdmin())) {
+        // Permite modificar tipo, prioridad y etiquetas solo al admin (el estado group_id lo puede cambiar admin o developer).
+        if ((array_key_exists('priority_id', $validated) || array_key_exists('labels', $validated) || array_key_exists('issue_type', $validated)) && ! ($user->isAdmin() || $user->isSuperAdmin())) {
             return response()->json([
-                'message' => 'Solo un administrador puede modificar el estado, tipo, prioridad o etiquetas de la tarea.',
+                'message' => 'Solo un administrador puede modificar el tipo, prioridad o etiquetas de la tarea.',
             ], 403);
         }
 
@@ -290,13 +290,6 @@ class TaskController extends Controller
     {
         $this->authorize('reorder', [Task::class, $project]);
 
-        $user = auth()->user();
-        if (! ($user->isAdmin() || $user->isSuperAdmin())) {
-            return response()->json([
-                'message' => 'Solo un administrador puede reordenar actividades.',
-            ], 403);
-        }
-
         Task::setNewOrder($request->ids);
 
         TaskOrderChanged::dispatch(
@@ -312,6 +305,7 @@ class TaskController extends Controller
     /**
      * Mueve tareas de un grupo a otro (cambio de columna en el Kanban).
      *
+     * Habilitado para admin y developer con permiso de reordenar tareas en el proyecto.
      * Si el grupo destino se llama "Finalizado", marca las tareas como completadas
      * automáticamente. En caso contrario, elimina la fecha de completado.
      *
@@ -320,13 +314,6 @@ class TaskController extends Controller
     public function move(Request $request, Project $project): JsonResponse
     {
         $this->authorize('reorder', [Task::class, $project]);
-
-        $user = auth()->user();
-        if (! ($user->isAdmin() || $user->isSuperAdmin())) {
-            return response()->json([
-                'message' => 'Solo un administrador puede cambiar el estado de la tarea.',
-            ], 403);
-        }
 
         Task::setNewOrder($request->ids);
 

@@ -118,15 +118,16 @@ const useTasksStore = create((set, get) => ({
       return set(produce(state => {
         const index = state.tasks[task.group_id].findIndex((i) => i.id === task.id);
 
-        if (property === 'group_id' && task.group_id !== value) {
+        if (property === 'group_id' && Number(task.group_id) !== Number(value)) {
+          const targetGroupId = Number(value);
           const isCompletedGroup = options?.name === 'Finalizado';
-          const result = move(state.tasks, task.group_id, value, index, 0);
+          const result = move(state.tasks, task.group_id, targetGroupId, index, 0);
 
           state.tasks[task.group_id] = result[task.group_id];
-          state.tasks[value] = result[value];
+          state.tasks[targetGroupId] = result[targetGroupId];
 
-          state.tasks[value][0][property] = value;
-          state.tasks[value][0].completed_at = isCompletedGroup ? new Date().toISOString() : null;
+          state.tasks[targetGroupId][0][property] = targetGroupId;
+          state.tasks[targetGroupId][0].completed_at = isCompletedGroup ? new Date().toISOString() : null;
         } else {
             state.tasks[task.group_id][index][property] = value;
 
@@ -186,9 +187,10 @@ const useTasksStore = create((set, get) => ({
 
     return set(produce(state => { state.tasks[sourceGroupId] = result }));
   },
-  moveTask: (source, destination) => {
+  moveTask: (source, destination, destGroupName = null) => {
     const sourceGroupId = +source.droppableId.split("-")[1];
     const destinationGroupId = +destination.droppableId.split("-")[1];
+    const isCompletedGroup = destGroupName === 'Finalizado';
 
     const result = move(get().tasks, sourceGroupId, destinationGroupId, source.index, destination.index);
 
@@ -202,11 +204,19 @@ const useTasksStore = create((set, get) => ({
 
     axios
       .post(route("projects.tasks.move", [route().params.project]), data, { progress: false })
-      .catch(() => alert("Failed to save task move action"));
+      .catch((e) => alert(e.response?.data?.message || "Failed to save task move action"));
 
     return set(produce(state => {
       state.tasks[sourceGroupId] = result[sourceGroupId];
-      state.tasks[destinationGroupId] = result[destinationGroupId];
+      state.tasks[destinationGroupId] = result[destinationGroupId].map((t, idx) =>
+        idx === destination.index
+          ? {
+              ...t,
+              group_id: destinationGroupId,
+              completed_at: isCompletedGroup ? (t.completed_at || new Date().toISOString()) : null,
+            }
+          : t
+      );
     }));
   },
   reparentTask: ({ taskId, newParentId, groupId, ids }) => {

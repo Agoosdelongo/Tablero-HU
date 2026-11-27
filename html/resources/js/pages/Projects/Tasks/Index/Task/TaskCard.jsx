@@ -1,11 +1,14 @@
 import { Label } from '@/components/Label';
 import useTaskDrawerStore from '@/hooks/store/useTaskDrawerStore';
+import useTaskGroupsStore from '@/hooks/store/useTaskGroupsStore';
+import { getGroupSelectColorName } from '@/utils/taskGroupColors';
+import translateGroupName from '@/utils/translateGroupName';
 import { isOverdue, isDueSoon } from '@/utils/task';
 import dayjs from 'dayjs';
 import { getInitials } from '@/utils/user';
 import { Draggable } from '@hello-pangea/dnd';
 import { Link, usePage } from '@inertiajs/react';
-import { Avatar, Group, Text, Tooltip, rem, useComputedColorScheme } from '@mantine/core';
+import { Avatar, Badge, Group, Text, Tooltip, rem, useComputedColorScheme } from '@mantine/core';
 import TaskActions from '../TaskActions';
 import classes from './css/TaskCard.module.css';
 import { ActionIcon } from '@mantine/core';
@@ -13,15 +16,18 @@ import { IconPlus } from '@tabler/icons-react';
 
 export default function TaskCard({ task, index }) {
   const { openEditTask, openCreateTask } = useTaskDrawerStore();
+  const { groups } = useTaskGroupsStore();
   const { auth: { user } } = usePage().props;
   const isAdmin = Boolean(user?.is_admin || user?.is_super_admin);
+  const canDragStatus = isAdmin || can('reorder task');
   const computedColorScheme = useComputedColorScheme();
-  console.log(task);
+  const currentGroup = groups.find(g => Number(g.id) === Number(task.group_id));
+  const statusColor = getGroupSelectColorName(currentGroup);
   return (
     <Draggable
       draggableId={'task-' + task.id}
       index={index}
-      isDragDisabled={!isAdmin}
+      isDragDisabled={!canDragStatus}
     >
       {(provided, snapshot) => (
         <div
@@ -41,7 +47,20 @@ export default function TaskCard({ task, index }) {
               />
             </Tooltip>
           )}
-          <div {...(isAdmin && can('reorder task') ? provided.dragHandleProps : {})}>
+          <div {...(canDragStatus ? provided.dragHandleProps : {})}>
+            {currentGroup && (
+              <Group justify='space-between' mb={4}>
+                <Badge
+                  size='xs'
+                  variant='light'
+                  color={statusColor}
+                  radius='sm'
+                  tt='uppercase'
+                >
+                  {translateGroupName(currentGroup.name)}
+                </Badge>
+              </Group>
+            )}
             <Group
               wrap='nowrap'
               justify='start'
