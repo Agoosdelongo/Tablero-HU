@@ -128,6 +128,16 @@ class User extends Authenticatable implements AuditableContract, CanResetPasswor
         return ! $this->isAdmin() && ! $this->isSuperAdmin();
     }
 
+    public function isDeveloper(): bool
+    {
+        return $this->hasRole('developer') || $this->hasRole('manager');
+    }
+
+    public function isDevOrAdmin(): bool
+    {
+        return $this->isAdmin() || $this->isSuperAdmin() || $this->isDeveloper();
+    }
+
     /**
      * Devuelve true si el usuario puede operar dentro del área dada.
      * El superadmin puede operar en cualquier área.

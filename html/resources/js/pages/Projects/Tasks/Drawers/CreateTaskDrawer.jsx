@@ -46,16 +46,21 @@ export function CreateTaskDrawer() {
   })();
 
   const isAdmin = Boolean(user?.is_admin || user?.is_super_admin);
+  const isDev = Boolean(user?.roles?.includes('developer') || user?.roles?.includes('manager'));
+  const canEditCreatedDate = isAdmin || isDev;
+  const canEditStartDate = isAdmin;
+  const canEditDueDate = isAdmin;
 
   const initial = {
     group_id: create.group_id ? create.group_id.toString() : '',
-    assigned_to_user_id: '',
-    assigned_user_ids: [],
+    assigned_to_user_id: !isAdmin ? user.id.toString() : '',
+    assigned_user_ids: !isAdmin ? [user.id.toString()] : [],
     name: '',
     description: '',
     issue_type: create.issue_type || '',
     parent_task_id: create.parent_task_id,
     priority_id: null,
+    created_at: new Date(),
     start_on: new Date(),
     due_on: '',
     subscribed_users: [user.id.toString()],
@@ -76,13 +81,14 @@ export function CreateTaskDrawer() {
       const resolvedIssueType = forcedChildType || create.issue_type || '';
       form.setData({
         group_id: create.group_id ? create.group_id.toString() : '',
-        assigned_to_user_id: '',
-        assigned_user_ids: [],
+        assigned_to_user_id: !isAdmin ? user.id.toString() : '',
+        assigned_user_ids: !isAdmin ? [user.id.toString()] : [],
         name: '',
         description: '',
         issue_type: resolvedIssueType,
         parent_task_id: create.parent_task_id,
         priority_id: null,
+        created_at: new Date(),
         start_on: new Date(),
         due_on: '',
         subscribed_users: [user.id.toString()],
@@ -93,10 +99,13 @@ export function CreateTaskDrawer() {
     }
   }, [create.opened, create.group_id, create.issue_type, create.parent_task_id]);
 
-  const isCurrentUserAssignee = (form.data.assigned_user_ids || []).includes(user.id.toString());
-  const canSetDueDate = isAdmin || isCurrentUserAssignee;
-
   const closeDrawer = (force = false) => {
+    const isDefaultCreatedAt =
+      !form.data.created_at ||
+      (form.data.created_at instanceof Date &&
+        dayjs(form.data.created_at).format('YYYY-MM-DD') === dayjs().format('YYYY-MM-DD')) ||
+      form.data.created_at === dayjs().format('YYYY-MM-DD');
+
     const isDefaultStartOn =
       !form.data.start_on ||
       (form.data.start_on instanceof Date &&
@@ -108,6 +117,7 @@ export function CreateTaskDrawer() {
       form.data.description === '' &&
       form.data.assigned_to_user_id === '' &&
       (form.data.assigned_user_ids || []).length === 0 &&
+      isDefaultCreatedAt &&
       isDefaultStartOn &&
       (!form.data.due_on || form.data.due_on === '') &&
       form.data.labels.length === 0 &&
@@ -185,12 +195,15 @@ export function CreateTaskDrawer() {
               ...data,
               parent_task_id: create.parent_task_id,
               issue_type: forcedChildType || data.issue_type,
-              assigned_to_user_id: data.assigned_user_ids?.[0] || '',
-              assigned_user_ids: (data.assigned_user_ids || []).map(Number),
-              start_on: data.start_on
+              assigned_to_user_id: !isAdmin ? user.id.toString() : (data.assigned_user_ids?.[0] || ''),
+              assigned_user_ids: !isAdmin ? [Number(user.id)] : (data.assigned_user_ids || []).map(Number),
+              created_at: canEditCreatedDate && data.created_at
+                ? (data.created_at instanceof Date ? dayjs(data.created_at).format('YYYY-MM-DD') : data.created_at)
+                : dayjs().format('YYYY-MM-DD'),
+              start_on: canEditStartDate && data.start_on
                 ? (data.start_on instanceof Date ? dayjs(data.start_on).format('YYYY-MM-DD') : data.start_on)
                 : dayjs().format('YYYY-MM-DD'),
-              due_on: canSetDueDate && data.due_on
+              due_on: canEditDueDate && data.due_on
                 ? (data.due_on instanceof Date ? dayjs(data.due_on).format('YYYY-MM-DD') : data.due_on)
                 : '',
             }),
@@ -308,12 +321,15 @@ export function CreateTaskDrawer() {
 
           <MultiSelect
             label="Personas asignadas"
-            placeholder={isAdmin ? "Selecciona personas" : "Solo el admin asigna"}
-            searchable
+            description={!isAdmin ? "Asignado automáticamente al creador." : undefined}
+            placeholder={!isAdmin ? user.name : "Selecciona personas"}
+            searchable={isAdmin}
             clearable={isAdmin}
             disabled={!isAdmin}
-            value={form.data.assigned_user_ids}
+            readOnly={!isAdmin}
+            value={!isAdmin ? [user.id.toString()] : form.data.assigned_user_ids}
             onChange={values => {
+              if (!isAdmin) return;
               form.setData(prev => ({
                 ...prev,
                 assigned_user_ids: values,
@@ -329,10 +345,31 @@ export function CreateTaskDrawer() {
             size="sm"
           />
 
+          {/* Fecha de creación */}
+          <DateInput
+            valueFormat="DD MMM YYYY"
+            label="Fecha de creación"
+            description={canEditCreatedDate ? "Automática al crear, modificable." : "Automática (hoy)"}
+            placeholder="Fecha de creación"
+            value={
+              form.data.created_at
+                ? form.data.created_at instanceof Date
+                  ? form.data.created_at
+                  : dayjs(form.data.created_at).toDate()
+                : new Date()
+            }
+            onChange={value => updateValue("created_at", value ? dayjs(value).format('YYYY-MM-DD') : "")}
+            disabled={!canEditCreatedDate}
+            readOnly={!canEditCreatedDate}
+            size="sm"
+          />
+
+          {/* Fecha de inicio */}
           <DateInput
             valueFormat="DD MMM YYYY"
             label="Fecha de inicio"
-            placeholder="Automática (hoy)"
+            description={canEditStartDate ? "Cuándo tiene que comenzar a realizarse la tarea." : "Solo modificable por el administrador."}
+            placeholder={canEditStartDate ? "Selecciona la fecha de inicio" : "Automática (hoy)"}
             value={
               form.data.start_on
                 ? form.data.start_on instanceof Date
@@ -340,25 +377,30 @@ export function CreateTaskDrawer() {
                   : dayjs(form.data.start_on).toDate()
                 : new Date()
             }
-            disabled
+            onChange={value => updateValue("start_on", value ? dayjs(value).format('YYYY-MM-DD') : "")}
+            disabled={!canEditStartDate}
+            readOnly={!canEditStartDate}
             size="sm"
           />
 
+          {/* Fecha de vencimiento */}
           <DateInput
-            clearable={canSetDueDate}
+            clearable={canEditDueDate}
             valueFormat="DD MMM YYYY"
-            minDate={new Date()}
-            label="Fecha de finalización"
-            placeholder={canSetDueDate ? "Selecciona la fecha" : "Solo el asignado"}
+            minDate={form.data.start_on ? (form.data.start_on instanceof Date ? form.data.start_on : dayjs(form.data.start_on).toDate()) : new Date()}
+            label="Fecha de vencimiento"
+            description={canEditDueDate ? "Plazo límite para realizar las tareas." : "Solo modificable por el administrador."}
+            placeholder={canEditDueDate ? "Selecciona la fecha de vencimiento" : "Solo modificable por el administrador"}
             value={
-              canSetDueDate && form.data.due_on
+              canEditDueDate && form.data.due_on
                 ? form.data.due_on instanceof Date
                   ? form.data.due_on
                   : dayjs(form.data.due_on).toDate()
                 : null
             }
-            onChange={value => updateValue("due_on", value || "")}
-            disabled={!canSetDueDate}
+            onChange={value => updateValue("due_on", value ? dayjs(value).format('YYYY-MM-DD') : "")}
+            disabled={!canEditDueDate}
+            readOnly={!canEditDueDate}
             size="sm"
           />
 

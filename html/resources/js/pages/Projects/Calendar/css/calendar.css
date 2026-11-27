@@ -61,6 +61,24 @@
     transition: .2s;
 }
 
+/* ---------- Días de otros meses (días colgados) ---------- */
+
+.fc-day-other {
+    background: rgba(0, 0, 0, 0.03);
+}
+
+.fc-day-other .fc-daygrid-day-number {
+    opacity: 0.3 !important;
+}
+
+[data-mantine-color-scheme="dark"] .fc-day-other {
+    background: rgba(0, 0, 0, 0.12);
+}
+
+[data-mantine-color-scheme="dark"] .fc-day-other .fc-daygrid-day-number {
+    color: rgba(220, 227, 234, 0.25) !important;
+}
+
 /* ---------- Día actual ---------- */
 
 .fc .fc-day-today {
@@ -74,22 +92,148 @@
 
 /* ---------- Eventos ---------- */
 
+.fc-daygrid-event {
+    white-space: normal !important;
+    margin-top: 2px !important;
+    margin-bottom: 2px !important;
+}
+
+.fc-daygrid-event .fc-event-main {
+    white-space: normal !important;
+    width: 100%;
+    padding: 1px 0;
+}
+
 .fc-event {
     cursor: pointer;
-    background: var(--mantine-color-hospitalPrimary-6);
-    border: none;
-    border-radius: 8px;
-    color: white;
+    background: #003764 !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 6px !important;
+    color: white !important;
     padding: 3px 8px;
-    font-size: .85rem;
+    font-size: .82rem;
     font-weight: 500;
     transition: all .2s ease;
 }
 
 .fc-event:hover {
-    background: var(--mantine-color-hospitalPrimary-7);
+    background: #004b87 !important;
+    border-color: rgba(255, 255, 255, 0.25) !important;
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0,55,100,.18);
+    box-shadow: 0 4px 12px rgba(0,55,100,.25);
+}
+
+/* Enlace +X más */
+.fc-daygrid-more-link,
+.fc-more-link {
+    color: var(--mantine-color-hospitalPrimary-3, #73ccf5) !important;
+    font-weight: 600;
+    font-size: 0.76rem;
+    padding: 2px 7px;
+    border-radius: 6px;
+    background: rgba(0, 55, 100, 0.25);
+    border: 1px solid rgba(0, 55, 100, 0.4);
+    text-decoration: none !important;
+    display: inline-block;
+    margin-top: 2px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+/* Ocultar el popover por defecto de FullCalendar ya que usamos el Modal de Mantine */
+.fc-popover,
+.fc-more-popover {
+    display: none !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    visibility: hidden !important;
+}
+
+.fc-more-link:hover {
+    background: #003764 !important;
+    color: white !important;
+    border-color: #004b87 !important;
+}
+
+[data-mantine-color-scheme="dark"] .fc-daygrid-more-link,
+[data-mantine-color-scheme="dark"] .fc-more-link {
+    color: #85cbf7 !important;
+    background: rgba(0, 55, 100, 0.4);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+[data-mantine-color-scheme="dark"] .fc-more-link:hover {
+    background: #004b87 !important;
+    color: white !important;
+}
+
+/* Tarjeta dentro del Modal de actividades */
+.calendar-modal-task-item {
+    background: #003764;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    padding: 10px 14px;
+    cursor: pointer;
+    color: white;
+    transition: all 0.2s ease;
+}
+
+.calendar-modal-task-item:hover {
+    background: #004b87;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 55, 100, 0.3);
+}
+
+.fc-custom-event-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 100%;
+}
+
+.fc-custom-event-title {
+    font-weight: 600;
+    font-size: 0.82rem;
+    line-height: 1.25;
+    word-break: break-word;
+}
+
+.fc-custom-subtasks-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.fc-custom-subtask-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.75rem;
+    line-height: 1.2;
+    padding: 2px 4px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.fc-custom-subtask-item:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.fc-custom-subtask-icon {
+    font-size: 0.75rem;
+    font-weight: bold;
+    flex-shrink: 0;
+    opacity: 0.9;
+}
+
+.fc-custom-subtask-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* ---------- Botones ---------- */

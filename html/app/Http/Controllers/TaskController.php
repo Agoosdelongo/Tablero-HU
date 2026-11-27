@@ -213,8 +213,8 @@ class TaskController extends Controller
         $this->authorize('create', [Task::class, $project]);
 
         $user = auth()->user();
-        if (! ($user->isAdmin() || $user->isSuperAdmin())) {
-            abort(403, 'Solo un administrador puede crear actividades.');
+        if (! ($user->isAdmin() || $user->isSuperAdmin() || $user->isDevOrAdmin())) {
+            abort(403, 'No tienes permisos para crear actividades.');
         }
 
         (new CreateTask)->create($project, $request->validated());
@@ -245,17 +245,31 @@ class TaskController extends Controller
             ], 403);
         }
 
-        // Impide modificar la fecha de inicio automática.
-        if (array_key_exists('start_on', $validated)) {
+        // Fecha de creación: modificable por admin y dev
+        if (array_key_exists('created_at', $validated) && ! $user->isDevOrAdmin()) {
             return response()->json([
-                'message' => 'La fecha de inicio se completa automáticamente y no puede modificarse.',
+                'message' => 'Solo un administrador o un desarrollador pueden modificar la fecha de creación.',
             ], 403);
         }
 
-        // Permite editar fecha de finalización solo al admin o al usuario asignado.
-        if (array_key_exists('due_on', $validated) && ! ($user->isAdmin() || $user->isSuperAdmin()) && ! $task->isAssignedTo($user)) {
+        // Fecha de inicio: modificable sólo por el admin
+        if (array_key_exists('start_on', $validated) && ! ($user->isAdmin() || $user->isSuperAdmin())) {
             return response()->json([
-                'message' => 'Solo quien debe cumplir la tarea o un administrador puede modificar la fecha de finalización.',
+                'message' => 'Solo un administrador puede modificar la fecha de inicio.',
+            ], 403);
+        }
+
+        // Fecha de vencimiento: modificable sólo por el admin
+        if (array_key_exists('due_on', $validated) && ! ($user->isAdmin() || $user->isSuperAdmin())) {
+            return response()->json([
+                'message' => 'Solo un administrador puede modificar la fecha de vencimiento.',
+            ], 403);
+        }
+
+        // Fecha de fin: modificable por admin y dev
+        if (array_key_exists('completed_at', $validated) && ! $user->isDevOrAdmin()) {
+            return response()->json([
+                'message' => 'Solo un administrador o un desarrollador pueden modificar la fecha de fin.',
             ], 403);
         }
 
@@ -266,10 +280,17 @@ class TaskController extends Controller
             ], 403);
         }
 
-        // Permite modificar estado, tipo, prioridad y etiquetas solo al admin.
-        if ((array_key_exists('priority_id', $validated) || array_key_exists('labels', $validated) || array_key_exists('issue_type', $validated) || array_key_exists('group_id', $validated)) && ! ($user->isAdmin() || $user->isSuperAdmin())) {
+        // Permite modificar tipo, prioridad y etiquetas solo al admin.
+        if ((array_key_exists('priority_id', $validated) || array_key_exists('labels', $validated) || array_key_exists('issue_type', $validated)) && ! ($user->isAdmin() || $user->isSuperAdmin())) {
             return response()->json([
-                'message' => 'Solo un administrador puede modificar el estado, tipo, prioridad o etiquetas de la tarea.',
+                'message' => 'Solo un administrador puede modificar el tipo, prioridad o etiquetas de la tarea.',
+            ], 403);
+        }
+
+        // Permite modificar estado al admin o al dev.
+        if (array_key_exists('group_id', $validated) && ! $user->isDevOrAdmin()) {
+            return response()->json([
+                'message' => 'No tienes permiso para modificar el estado de la tarea.',
             ], 403);
         }
 
@@ -291,9 +312,9 @@ class TaskController extends Controller
         $this->authorize('reorder', [Task::class, $project]);
 
         $user = auth()->user();
-        if (! ($user->isAdmin() || $user->isSuperAdmin())) {
+        if (! ($user->isAdmin() || $user->isSuperAdmin() || $user->isDevOrAdmin())) {
             return response()->json([
-                'message' => 'Solo un administrador puede reordenar actividades.',
+                'message' => 'No tienes permisos para reordenar actividades.',
             ], 403);
         }
 
@@ -322,17 +343,17 @@ class TaskController extends Controller
         $this->authorize('reorder', [Task::class, $project]);
 
         $user = auth()->user();
-        if (! ($user->isAdmin() || $user->isSuperAdmin())) {
+        $toGroup = TaskGroup::find($request->to_group_id);
+        // Las tareas que llegan al grupo "Finalizado" se marcan como completadas automáticamente.
+        $isCompletedGroup = $toGroup && $toGroup->name === 'Finalizado';
+
+        if (! ($user->isAdmin() || $user->isSuperAdmin() || $user->isDevOrAdmin())) {
             return response()->json([
-                'message' => 'Solo un administrador puede cambiar el estado de la tarea.',
+                'message' => 'No tienes permisos para cambiar el estado de la tarea.',
             ], 403);
         }
 
         Task::setNewOrder($request->ids);
-
-        $toGroup = TaskGroup::find($request->to_group_id);
-        // Las tareas que llegan al grupo "Finalizado" se marcan como completadas automáticamente.
-        $isCompletedGroup = $toGroup && $toGroup->name === 'Finalizado';
 
         Task::whereIn('id', $request->ids)->update([
             'group_id' => $request->to_group_id,
@@ -422,9 +443,9 @@ class TaskController extends Controller
         $this->authorize('complete', [Task::class, $project]);
 
         $user = auth()->user();
-        if (! ($user->isAdmin() || $user->isSuperAdmin())) {
+        if (! $user->isDevOrAdmin()) {
             return response()->json([
-                'message' => 'Solo un administrador puede marcar o desmarcar una actividad como completada.',
+                'message' => 'Solo un administrador o un desarrollador pueden marcar o desmarcar una actividad como completada.',
             ], 403);
         }
 

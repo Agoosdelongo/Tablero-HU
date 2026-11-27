@@ -31,8 +31,10 @@ class UpdateTaskRequest extends FormRequest
             'description' => ['nullable'],
             'issue_type' => ['sometimes', 'in:Epica,Historia,Tarea,Subtarea'],
             'priority_id' => ['nullable', 'exists:task_priorities,id'],
+            'created_at' => ['nullable'],
             'start_on' => ['nullable'],
             'due_on' => ['nullable'],
+            'completed_at' => ['nullable'],
             'subscribed_users' => ['array'],
             'labels' => ['array'],
         ];

@@ -12,6 +12,8 @@ export default function TaskGroup({ group, tasks, ...props }) {
   const { openCreateTask } = useTaskDrawerStore();
   const { auth: { user } } = usePage().props;
   const isAdmin = Boolean(user?.is_admin || user?.is_super_admin);
+  const isDev = Boolean(user?.roles?.includes('developer') || user?.roles?.includes('manager'));
+  const canCreateTask = (isAdmin || isDev) && can("create task");
 
   return (
     <Draggable draggableId={group.id.toString()} isDragDisabled={!isAdmin} {...props}>
@@ -40,7 +42,7 @@ export default function TaskGroup({ group, tasks, ...props }) {
               </Text>
               {isAdmin && <TaskGroupActions group={group} className={classes.actions} />}
             </Group>
-            {!route().params.archived && isAdmin && can("create task") && (
+            {!route().params.archived && canCreateTask && (
               <Tooltip label="Add task" openDelay={1000} withArrow>
                 <ActionIcon
                   variant="filled"

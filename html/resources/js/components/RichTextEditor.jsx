@@ -57,7 +57,7 @@ const RichTextEditor = forwardRef(function RichTextEditor(
 
   useImperativeHandle(ref, () => ({
     setContent(content) {
-      editor?.commands.setContent(content);
+      editor?.commands.setContent(content, false);
     },
   }));
 

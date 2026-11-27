@@ -1,0 +1,1 @@
+import{t as r}from"./app-B81Fw6Ol.js";const s=t=>r(t).tz().format("D. MMM YYYY"),d=t=>r(t).tz().format("dddd"),m=t=>r(t).tz().format("D. MMM YYYY H:mm")+"h",e=(t,a=!1)=>r(t).tz().fromNow(a);export{e as a,s as b,m as c,d};

@@ -23,6 +23,8 @@ import {
 export default function Header() {
   const { project, auth: { user } } = usePage().props;
   const isAdmin = Boolean(user?.is_admin || user?.is_super_admin);
+  const isDev = Boolean(user?.roles?.includes('developer') || user?.roles?.includes('manager'));
+  const canCreateTask = (isAdmin || isDev) && can('create task');
 
   const { openDrawer } = useTaskFiltersStore();
   const { openCreateTask } = useTaskDrawerStore();
@@ -119,7 +121,7 @@ export default function Header() {
             </ActionIcon.Group>
           </Group>
 
-          {isAdmin && can('create task') && (
+          {canCreateTask && (
             <Button
               leftSection={<IconPlus size={14} />}
               radius="xl"

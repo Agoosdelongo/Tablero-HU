@@ -22,22 +22,25 @@ class CreateTask
     public function create(Project $project, array $data): Task
     {
         return DB::transaction(function () use ($project, $data) {
-            $assigneeIds = collect($data['assigned_user_ids'] ?? [])
-                ->when(
-                    empty($data['assigned_user_ids']) && ! empty($data['assigned_to_user_id']),
-                    fn ($c) => $c->push($data['assigned_to_user_id'])
-                )
-                ->map(fn ($id) => (int) $id)
-                ->filter()
-                ->unique()
-                ->values()
-                ->all();
-
-            // Fecha de inicio automática (hoy).
-            // Fecha de finalización permitida para el admin o si el creador es asignado.
             $user = auth()->user();
-            $canSetDueOn = ($user && ($user->isAdmin() || $user->isSuperAdmin()))
-                || in_array((int) auth()->id(), $assigneeIds, true);
+            $isAdmin = $user && ($user->isAdmin() || $user->isSuperAdmin());
+            $isDevOrAdmin = $user && $user->isDevOrAdmin();
+
+            if (! $isAdmin) {
+                // Si es un desarrollador, la persona asignada es obligatoriamente el propio creador
+                $assigneeIds = [(int) $user->id];
+            } else {
+                $assigneeIds = collect($data['assigned_user_ids'] ?? [])
+                    ->when(
+                        empty($data['assigned_user_ids']) && ! empty($data['assigned_to_user_id']),
+                        fn ($c) => $c->push($data['assigned_to_user_id'])
+                    )
+                    ->map(fn ($id) => (int) $id)
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->all();
+            }
 
             $task = $project->tasks()->create([
                 'group_id' => $data['group_id'],
@@ -48,8 +51,9 @@ class CreateTask
                 'issue_type' => $data['issue_type'],
                 'parent_task_id' => $data['parent_task_id'] ?? null,
                 'description' => $data['description'],
-                'start_on' => ! empty($data['start_on']) ? $data['start_on'] : now()->toDateString(),
-                'due_on' => $canSetDueOn ? ($data['due_on'] ?? null) : null,
+                'created_at' => ($isDevOrAdmin && ! empty($data['created_at'])) ? $data['created_at'] : now(),
+                'start_on' => ($isAdmin && ! empty($data['start_on'])) ? $data['start_on'] : now()->toDateString(),
+                'due_on' => ($isAdmin && ! empty($data['due_on'])) ? $data['due_on'] : null,
                 'priority_id' => $data['priority_id'] ?? null,
                 'completed_at' => null,
             ]);
@@ -68,7 +72,11 @@ class CreateTask
 
             foreach ($task->assignees()->get() as $assignee) {
                 if ((int) $assignee->id !== (int) auth()->id()) {
-                    $assignee->notify(new TaskAssignedNotification($task));
+                    try {
+                        $assignee->notify(new TaskAssignedNotification($task));
+                    } catch (\Throwable $e) {
+                        \Illuminate\Support\Facades\Log::warning('No se pudo enviar notificación de tarea asignada: '.$e->getMessage());
+                    }
                 }
             }
 

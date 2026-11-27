@@ -97,11 +97,20 @@ const useTasksStore = create((set, get) => ({
     }));
   },
   findTask: (id) => {
+    if (!id) return null;
+    const numericId = Number(id);
     for (const groupId in get().tasks) {
-      const task = get().tasks[groupId].find((i) => i.id === id);
-
-      if (task) {
-        return task;
+      const groupTasks = get().tasks[groupId] || [];
+      for (const task of groupTasks) {
+        if (Number(task.id) === numericId) {
+          return task;
+        }
+        if (Array.isArray(task.children)) {
+          const subtask = task.children.find((c) => Number(c.id) === numericId);
+          if (subtask) {
+            return subtask;
+          }
+        }
       }
     }
     return null;

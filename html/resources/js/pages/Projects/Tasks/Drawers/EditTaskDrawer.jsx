@@ -49,9 +49,16 @@ export function EditTaskDrawer() {
     if (openedTask) setTimeout(() => openEditTask(openedTask), 50);
   }, []);
 
-  const task = findTask(edit.task.id);
+  const storeTask = findTask(edit.task?.id);
+  const task = storeTask || (edit.task?.id ? edit.task : null);
 
   const isAdmin = Boolean(user?.is_admin || user?.is_super_admin);
+  const isDev = Boolean(user?.roles?.includes('developer') || user?.roles?.includes('manager'));
+  const canEditCreatedDate = isAdmin || isDev;
+  const canEditStartDate = isAdmin;
+  const canEditDueDate = isAdmin;
+  const canEditCompletedDate = isAdmin || isDev;
+
   const canEditNameAndDescription =
     Boolean(task) &&
     isAdmin &&
@@ -65,8 +72,10 @@ export function EditTaskDrawer() {
     description: '',
     issue_type: '',
     priority_id: '',
+    created_at: '',
     start_on: '',
     due_on: '',
+    completed_at: '',
     subscribed_users: [],
     labels: [],
   });
@@ -78,42 +87,53 @@ export function EditTaskDrawer() {
   }, [edit.opened]);
 
   useEffect(() => {
-    if (edit.opened) {
+    if (edit.opened && task) {
       const assignedIds =
-        Array.isArray(task?.assignees) && task.assignees.length > 0
+        Array.isArray(task.assignees) && task.assignees.length > 0
           ? task.assignees.filter(i => i?.id != null).map(i => i.id.toString())
-          : task?.assigned_to_user_id
+          : task.assigned_to_user_id
             ? [task.assigned_to_user_id.toString()]
             : [];
 
       setData({
-        group_id: task?.group_id || '',
-        assigned_to_user_id: task?.assigned_to_user_id || '',
+        group_id: task.group_id != null ? task.group_id : '',
+        assigned_to_user_id: task.assigned_to_user_id != null ? task.assigned_to_user_id : '',
         assigned_user_ids: assignedIds,
-        name: task?.name || '',
-        description: task?.description || '',
-        issue_type: task?.issue_type || '',
-        priority_id: task?.priority_id || '',
-        start_on: task?.start_on
+        name: task.name || '',
+        description: task.description || '',
+        issue_type: task.issue_type || '',
+        priority_id: task.priority_id || '',
+        created_at: task.created_at
+          ? dayjs(
+              typeof task.created_at === 'string' ? task.created_at.split('T')[0] : task.created_at
+            ).toDate()
+          : '',
+        start_on: task.start_on
           ? dayjs(
               typeof task.start_on === 'string' ? task.start_on.split('T')[0] : task.start_on
             ).toDate()
           : '',
-        due_on: task?.due_on
+        due_on: task.due_on
           ? dayjs(
               typeof task.due_on === 'string' ? task.due_on.split('T')[0] : task.due_on
             ).toDate()
           : '',
-        subscribed_users: (task?.subscribed_users || [])
+        completed_at: task.completed_at
+          ? dayjs(
+              typeof task.completed_at === 'string' ? task.completed_at.split('T')[0] : task.completed_at
+            ).toDate()
+          : '',
+        subscribed_users: (task.subscribed_users || [])
           .filter(i => i?.id != null)
           .map(i => i.id.toString()),
-        labels: (task?.labels || []).map(i => i.id),
+        labels: (task.labels || []).map(i => i.id),
       });
+
       setTimeout(() => {
-        editorRef.current?.setContent(task?.description || '');
-      }, 300);
+        editorRef.current?.setContent(task.description || '');
+      }, 50);
     }
-  }, [edit.opened, task]);
+  }, [edit.opened, task?.id]);
 
   const taskAssignedIds =
     Array.isArray(task?.assignees) && task.assignees.length > 0
@@ -124,30 +144,51 @@ export function EditTaskDrawer() {
   const isCurrentUserAssigned =
     (data.assigned_user_ids || []).includes(String(user?.id)) ||
     taskAssignedIds.includes(String(user?.id));
-  const canEditDueDate = isAdmin || isCurrentUserAssigned;
   const canUploadAttachment = isAdmin || isCurrentUserAssigned;
 
   const updateValue = (field, value) => {
     if ((field === 'name' || field === 'description') && !canEditNameAndDescription) {
       return;
     }
-    if (field === 'start_on') {
+    if (field === 'created_at' && !canEditCreatedDate) {
+      return;
+    }
+    if (field === 'start_on' && !canEditStartDate) {
       return;
     }
     if (field === 'due_on' && !canEditDueDate) {
       return;
     }
-    if ((field === 'assigned_user_ids' || field === 'assigned_to_user_id' || field === 'subscribed_users' || field === 'priority_id' || field === 'labels' || field === 'issue_type' || field === 'group_id') && !isAdmin) {
+    if (field === 'completed_at' && !canEditCompletedDate) {
+      return;
+    }
+    if (field === 'group_id') {
+      if (!isAdmin && !isDev) {
+        return;
+      }
+    } else if (
+      (field === 'assigned_user_ids' ||
+        field === 'assigned_to_user_id' ||
+        field === 'subscribed_users' ||
+        field === 'priority_id' ||
+        field === 'labels' ||
+        field === 'issue_type') &&
+      !isAdmin
+    ) {
       return;
     }
 
     // Convertir Date objects a string YYYY-MM-DD para fechas
     let valueToStore = value;
-    if ((field === 'due_on' || field === 'start_on') && value instanceof Date) {
-      valueToStore = dayjs(value).format('YYYY-MM-DD');
+    if (['due_on', 'start_on', 'created_at', 'completed_at'].includes(field)) {
+      if (value instanceof Date) {
+        valueToStore = dayjs(value).format('YYYY-MM-DD');
+      } else if (!value) {
+        valueToStore = null;
+      }
     }
 
-    setData({ ...data, [field]: value });
+    setData(prev => ({ ...prev, [field]: value }));
 
     const dropdowns = ['labels', 'subscribed_users', 'assigned_user_ids'];
     const onBlurInputs = ['name', 'description'];
@@ -176,9 +217,12 @@ export function EditTaskDrawer() {
     if ((property === 'name' || property === 'description') && !canEditNameAndDescription) {
       return;
     }
-    if (data.name.length > 0) {
-      updateTaskProperty(task, property, data[property]);
-    }
+    setData(currentData => {
+      if (currentData.name.length > 0) {
+        updateTaskProperty(task, property, currentData[property]);
+      }
+      return currentData;
+    });
   };
 
   return (
@@ -196,10 +240,10 @@ export function EditTaskDrawer() {
             radius='xl'
             color='green'
             checked={task?.completed_at !== null}
-            disabled={!isAdmin}
-            onChange={e => isAdmin && complete(task, e.currentTarget.checked)}
-            className={isAdmin && can('complete task') ? classes.checkbox : classes.disabledCheckbox}
-            style={!isAdmin ? { pointerEvents: 'none', opacity: 0.6 } : undefined}
+            disabled={!canEditCompletedDate}
+            onChange={e => canEditCompletedDate && complete(task, e.currentTarget.checked)}
+            className={canEditCompletedDate && can('complete task') ? classes.checkbox : classes.disabledCheckbox}
+            style={!canEditCompletedDate ? { pointerEvents: 'none', opacity: 0.6 } : undefined}
           />
           <Text
             fz={rem(27)}
@@ -392,11 +436,11 @@ export function EditTaskDrawer() {
                   value: i.id.toString(),
                   label: i.name,
                 }))}
-                readOnly={!isAdmin}
-                disabled={!isAdmin}
-                tabIndex={!isAdmin ? -1 : undefined}
-                rightSection={!isAdmin ? null : undefined}
-                styles={!isAdmin ? { root: { pointerEvents: 'none' }, input: { cursor: 'not-allowed' } } : undefined}
+                readOnly={!(isAdmin || isDev)}
+                disabled={!(isAdmin || isDev)}
+                tabIndex={!(isAdmin || isDev) ? -1 : undefined}
+                rightSection={!(isAdmin || isDev) ? null : undefined}
+                styles={!(isAdmin || isDev) ? { root: { pointerEvents: 'none' }, input: { cursor: 'not-allowed' } } : undefined}
                 size='sm'
               />
 
@@ -445,38 +489,74 @@ export function EditTaskDrawer() {
                 size='sm'
               />
 
-              {/* Fecha de inicio */}
+              {/* Fecha de creación */}
               <DateInput
+                clearable={canEditCreatedDate}
                 valueFormat='DD MMM YYYY'
                 mt='ms'
-                label='Fecha de inicio'
-                description='Se completa automáticamente al crear la tarea.'
-                placeholder='Automática'
-                value={data.start_on}
-                readOnly
-                disabled
-                tabIndex={-1}
-                styles={{ root: { pointerEvents: 'none' }, input: { cursor: 'not-allowed' } }}
+                label='Fecha de creación'
+                description={canEditCreatedDate ? 'Fecha en la que fue creada la tarea.' : 'Fecha automática de creación.'}
+                placeholder={canEditCreatedDate ? 'Selecciona la fecha' : 'Fecha de creación'}
+                value={data.created_at}
+                onChange={value => updateValue('created_at', value)}
+                readOnly={!canEditCreatedDate}
+                disabled={!canEditCreatedDate}
+                tabIndex={!canEditCreatedDate ? -1 : undefined}
+                styles={!canEditCreatedDate ? { root: { pointerEvents: 'none' }, input: { cursor: 'not-allowed' } } : undefined}
                 size='sm'
               />
 
-              {/* Fecha de finalización */}
+              {/* Fecha de inicio */}
+              <DateInput
+                clearable={canEditStartDate}
+                valueFormat='DD MMM YYYY'
+                mt='ms'
+                label='Fecha de inicio'
+                description={canEditStartDate ? 'Cuándo tiene que comenzar a realizarse la tarea.' : 'Solo modificable por el administrador.'}
+                placeholder={canEditStartDate ? 'Selecciona la fecha de inicio' : 'Solo administrador'}
+                value={data.start_on}
+                onChange={value => updateValue('start_on', value)}
+                readOnly={!canEditStartDate}
+                disabled={!canEditStartDate}
+                tabIndex={!canEditStartDate ? -1 : undefined}
+                styles={!canEditStartDate ? { root: { pointerEvents: 'none' }, input: { cursor: 'not-allowed' } } : undefined}
+                size='sm'
+              />
+
+              {/* Fecha de vencimiento */}
               <DateInput
                 clearable={canEditDueDate}
                 valueFormat='DD MMM YYYY'
-                minDate={data.start_on || new Date()}
+                minDate={data.start_on || undefined}
                 mt='ms'
-                label='Fecha de finalización'
-                description={!canEditDueDate
-                  ? 'Habilitado solo para quien deba cumplir la tarea.'
-                  : 'Indicá la fecha de finalización de la tarea.'}
-                placeholder={canEditDueDate ? 'Selecciona la fecha de finalización' : 'Solo editable por el asignado'}
+                label='Fecha de vencimiento'
+                description={canEditDueDate
+                  ? 'Plazo límite para realizar la tarea.'
+                  : 'Solo modificable por el administrador.'}
+                placeholder={canEditDueDate ? 'Selecciona la fecha de vencimiento' : 'Solo editable por el administrador'}
                 value={data.due_on}
                 onChange={value => updateValue('due_on', value)}
                 readOnly={!canEditDueDate}
                 disabled={!canEditDueDate}
                 tabIndex={!canEditDueDate ? -1 : undefined}
                 styles={!canEditDueDate ? { root: { pointerEvents: 'none' }, input: { cursor: 'not-allowed' } } : undefined}
+                size='sm'
+              />
+
+              {/* Fecha de fin */}
+              <DateInput
+                clearable={canEditCompletedDate}
+                valueFormat='DD MMM YYYY'
+                mt='ms'
+                label='Fecha de fin'
+                description={canEditCompletedDate ? 'Fecha de finalización de la tarea.' : 'Sin finalizar.'}
+                placeholder={canEditCompletedDate ? 'Selecciona fecha o finaliza la tarea' : 'Sin finalizar'}
+                value={data.completed_at}
+                onChange={value => updateValue('completed_at', value)}
+                readOnly={!canEditCompletedDate}
+                disabled={!canEditCompletedDate}
+                tabIndex={!canEditCompletedDate ? -1 : undefined}
+                styles={!canEditCompletedDate ? { root: { pointerEvents: 'none' }, input: { cursor: 'not-allowed' } } : undefined}
                 size='sm'
               />
 

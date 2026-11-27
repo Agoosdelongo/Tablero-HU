@@ -26,13 +26,13 @@ const BoardView = ({ groups, tasks, usingFilters, onDragEnd, tasksView }) => {
           >
             <div className={classes.viewport}>
               {groups
-                .filter(group => !usingFilters || (usingFilters && tasks[group.id]?.length > 0))
+                .filter(group => !usingFilters || (usingFilters && (tasks[group.id] || []).filter(t => !t.parent_task_id).length > 0))
                 .map((group, index) => (
                   <TaskGroup
                     key={group.id}
                     index={index}
                     group={group}
-                    tasks={tasks[group.id] || []}
+                    tasks={(tasks[group.id] || []).filter(task => !task.parent_task_id)}
                   />
                 ))}
               {provided.placeholder}

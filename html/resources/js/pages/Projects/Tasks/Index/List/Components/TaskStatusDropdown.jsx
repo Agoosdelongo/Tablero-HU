@@ -9,13 +9,15 @@ import useTasksStore from '@/hooks/store/useTasksStore';
 export default function TaskStatusDropdown({ task }) {
   const { auth: { user } } = usePage().props;
   const isAdmin = Boolean(user?.is_admin || user?.is_super_admin);
+  const isDev = Boolean(user?.roles?.includes('developer') || user?.roles?.includes('manager'));
+  const canChangeStatus = isAdmin || isDev;
   const { groups } = useTaskGroupsStore();
   const { updateTaskProperty } = useTasksStore();
 
   const currentGroup = groups.find(g => g.id === task.group_id);
   const currentColor = getGroupSelectColorName(currentGroup);
 
-  if (!isAdmin) {
+  if (!canChangeStatus) {
     return (
       <div
         onClick={e => e.stopPropagation()}
@@ -46,12 +48,12 @@ export default function TaskStatusDropdown({ task }) {
         }))}
         allowDeselect={false}
         searchable={false}
-        disabled={!isAdmin}
+        disabled={!canChangeStatus}
         size="xs"
         radius="sm"
         variant="filled"
         onChange={value => {
-          if (!isAdmin) return;
+          if (!canChangeStatus) return;
           const group = groups.find(g => g.id === Number(value));
 
           updateTaskProperty(task, 'group_id', group.id, group);

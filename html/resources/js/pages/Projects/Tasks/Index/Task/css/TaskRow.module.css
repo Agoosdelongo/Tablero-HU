@@ -73,7 +73,12 @@
     transition: 0.3s ease opacity;
 }
 
-.itemDragging {}
+.itemDragging {
+    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.4), 0 10px 10px rgba(0, 0, 0, 0.25) !important;
+    z-index: 99999 !important;
+    background-color: light-dark(var(--mantine-color-white), var(--mantine-color-dark-6)) !important;
+    cursor: grabbing !important;
+}
 
 .dragHandle {
     opacity: 0;

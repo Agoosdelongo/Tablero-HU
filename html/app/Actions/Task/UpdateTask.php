@@ -53,7 +53,11 @@ class UpdateTask
             if (! empty($addedIds)) {
                 foreach (User::whereIn('id', $addedIds)->get() as $user) {
                     if ((int) $user->id !== (int) auth()->id()) {
-                        $user->notify(new TaskAssignedNotification($task));
+                        try {
+                            $user->notify(new TaskAssignedNotification($task));
+                        } catch (\Throwable $e) {
+                            \Illuminate\Support\Facades\Log::warning('No se pudo enviar notificación de tarea asignada: '.$e->getMessage());
+                        }
                     }
                 }
             }

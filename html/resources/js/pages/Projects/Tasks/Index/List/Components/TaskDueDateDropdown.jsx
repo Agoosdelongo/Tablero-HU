@@ -18,7 +18,7 @@ export default function TaskDueDateDropdown({ task }) {
                 : [];
 
     const isAdmin = Boolean(user?.is_admin || user?.is_super_admin);
-    const canEditDueDate = isAdmin || assignedIds.includes(Number(user?.id));
+    const canEditDueDate = isAdmin;
 
     const parseDate = (date) => {
         if (!date) return null;
@@ -64,7 +64,7 @@ export default function TaskDueDateDropdown({ task }) {
             {canEditDueDate ? (
                 input
             ) : (
-                <Tooltip label="Solo quien debe cumplir la tarea puede modificar la fecha de finalización" withArrow>
+                <Tooltip label="Solo el administrador puede modificar la fecha de vencimiento" withArrow>
                     <div>{input}</div>
                 </Tooltip>
             )}

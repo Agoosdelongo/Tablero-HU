@@ -1,0 +1,1 @@
+import{b as s,j as m}from"./app-B81Fw6Ol.js";import{g as n}from"./taskGroupColors-D9YWYoHm.js";import{P as c}from"./Pill-yysc7gv3.js";const x=s.forwardRef(function({taskGroup:o,children:a,...e},t){const r=o?n(o):"gray";return m.jsx(c,{ref:t,size:"xs",bg:`var(--mantine-color-${r}-1)`,c:`var(--mantine-color-${r}-8)`,fw:600,...e,children:a})});export{x as T};

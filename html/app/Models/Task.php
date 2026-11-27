@@ -65,6 +65,7 @@ class Task extends Model implements AuditableContract, Sortable
         'issue_type',
         'parent_task_id',
 
+        'created_at',
         'start_on',
         'due_on',
         'priority_id',

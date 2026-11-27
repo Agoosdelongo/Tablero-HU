@@ -49,3 +49,10 @@
     top: rem(5px);
     right: rem(5px);
 }
+
+.itemDragging {
+    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.4), 0 10px 10px rgba(0, 0, 0, 0.25) !important;
+    z-index: 99999 !important;
+    cursor: grabbing !important;
+    transform-origin: center center;
+}

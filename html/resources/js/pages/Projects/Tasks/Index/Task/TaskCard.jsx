@@ -4,6 +4,7 @@ import useTasksStore from '@/hooks/store/useTasksStore';
 import { isOverdue, isDueSoon } from '@/utils/task';
 import dayjs from 'dayjs';
 import { getInitials } from '@/utils/user';
+import { createPortal } from 'react-dom';
 import { Draggable } from '@hello-pangea/dnd';
 import { Link, usePage } from '@inertiajs/react';
 import {
@@ -27,6 +28,8 @@ export default function TaskCard({ task, index }) {
   const { findTask, complete } = useTasksStore();
   const { auth: { user } } = usePage().props;
   const isAdmin = Boolean(user?.is_admin || user?.is_super_admin);
+  const isDev = Boolean(user?.roles?.includes('developer') || user?.roles?.includes('manager'));
+  const canDrag = (isAdmin || isDev) && can('reorder task');
   const computedColorScheme = useComputedColorScheme();
 
   const subtasks = (task.children || []).map(c => findTask(c.id) || c);
@@ -36,14 +39,16 @@ export default function TaskCard({ task, index }) {
     <Draggable
       draggableId={'task-' + task.id}
       index={index}
-      isDragDisabled={!isAdmin}
+      isDragDisabled={!(isAdmin || isDev)}
     >
-      {(provided, snapshot) => (
-        <div
-          {...provided.draggableProps}
-          ref={provided.innerRef}
-           className={`${classes.task} ${snapshot.isDragging && classes.itemDragging}`}
-        >
+      {(provided, snapshot) => {
+        const cardNode = (
+          <div
+            {...provided.draggableProps}
+            ref={provided.innerRef}
+            className={`${classes.task} ${snapshot.isDragging ? classes.itemDragging : ''}`}
+            style={provided.draggableProps.style}
+          >
           {task.priority && (
             <Tooltip
               label={task.priority.label + ' priority'}
@@ -56,7 +61,7 @@ export default function TaskCard({ task, index }) {
               />
             </Tooltip>
           )}
-          <div {...(isAdmin && can('reorder task') ? provided.dragHandleProps : {})}>
+          <div {...(canDrag ? provided.dragHandleProps : {})}>
             <Group
               wrap='nowrap'
               justify='start'
@@ -240,7 +245,7 @@ export default function TaskCard({ task, index }) {
                   </Avatar.Group>
                 );
               })()}
-              {isAdmin && task.issue_type !== 'Subtarea' && (
+              {(isAdmin || isDev) && task.issue_type !== 'Subtarea' && (
                 <ActionIcon
                   variant='subtle'
                   size='sm'
@@ -266,7 +271,10 @@ export default function TaskCard({ task, index }) {
             </Group>
           </div>
         </div>
-      )}
+        );
+
+        return snapshot.isDragging ? createPortal(cardNode, document.body) : cardNode;
+      }}
     </Draggable>
   );
 }

@@ -49,11 +49,12 @@ export default function TaskRow({
   const { selectedTaskIds, toggleTaskSelection } = useTasksStore();
   const { auth: { user } } = usePage().props;
   const isAdmin = Boolean(user?.is_admin || user?.is_super_admin);
+  const isDev = Boolean(user?.roles?.includes('developer') || user?.roles?.includes('manager'));
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: task.id,
     data: { task },
-    disabled: !isAdmin,
+    disabled: !(isAdmin || isDev),
   });
 
   const isBeingDragged = dragState?.activeTask?.id === task.id;
@@ -196,7 +197,7 @@ export default function TaskRow({
             )}
           </Group>
 
-          {isAdmin && task.issue_type !== 'Subtarea' && (
+          {(isAdmin || isDev) && task.issue_type !== 'Subtarea' && (
             <div
               className={classes.summaryAction}
               onClick={e => {
