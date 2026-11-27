@@ -1,1 +1,0 @@
-import{j as e}from"./app-VhxW5YTm.js";import{c as s}from"./ListView.module-WgWjykVd.js";import{T as o}from"./Text-B9WMOBAo.js";function d({title:r,className:a,children:m}){return e.jsx("div",{className:a,children:e.jsxs("div",{className:s.columnHeader,children:[e.jsx(o,{className:s.headerText,children:r}),m]})})}export{d as default};

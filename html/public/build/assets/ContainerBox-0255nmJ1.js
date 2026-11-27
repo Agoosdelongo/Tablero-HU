@@ -1,0 +1,1 @@
+import{j as x,P as a}from"./app-RJoL6WNn.js";const m="_box_1tiq4_1",t={box:m};function n({children:s,...o}){return x.jsx(a,{px:{base:"md",sm:"lg",md:40},py:{base:"md",sm:"xl",md:30},className:t.box,...o,children:s})}export{n as C};

@@ -1,0 +1,1 @@
+import{j as r}from"./app-RJoL6WNn.js";import{T as s}from"./Text-CB3rhoc9.js";function d({date:e}){if(!e)return r.jsx(s,{size:"sm",c:"dimmed",children:"—"});const t=new Date(e),a=String(t.getUTCDate()).padStart(2,"0"),n=String(t.getUTCMonth()+1).padStart(2,"0"),o=t.getUTCFullYear(),i=`${a}/${n}/${o}`;return r.jsx(s,{size:"sm",children:i})}export{d as default};

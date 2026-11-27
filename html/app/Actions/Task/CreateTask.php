@@ -48,7 +48,7 @@ class CreateTask
                 'issue_type' => $data['issue_type'],
                 'parent_task_id' => $data['parent_task_id'] ?? null,
                 'description' => $data['description'],
-                'start_on' => now()->toDateString(),
+                'start_on' => ! empty($data['start_on']) ? $data['start_on'] : now()->toDateString(),
                 'due_on' => $canSetDueOn ? ($data['due_on'] ?? null) : null,
                 'priority_id' => $data['priority_id'] ?? null,
                 'completed_at' => null,

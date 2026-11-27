@@ -97,15 +97,22 @@ export function CreateTaskDrawer() {
   const canSetDueDate = isAdmin || isCurrentUserAssignee;
 
   const closeDrawer = (force = false) => {
-    const isEmpty = (
+    const isDefaultStartOn =
+      !form.data.start_on ||
+      (form.data.start_on instanceof Date &&
+        dayjs(form.data.start_on).format('YYYY-MM-DD') === dayjs().format('YYYY-MM-DD')) ||
+      form.data.start_on === dayjs().format('YYYY-MM-DD');
+
+    const isEmpty =
       form.data.name === '' &&
       form.data.description === '' &&
+      form.data.assigned_to_user_id === '' &&
       (form.data.assigned_user_ids || []).length === 0 &&
-      form.data.due_on === '' &&
+      isDefaultStartOn &&
+      (!form.data.due_on || form.data.due_on === '') &&
       form.data.labels.length === 0 &&
       form.data.priority_id === null &&
-      form.data.attachments.length === 0
-    );
+      form.data.attachments.length === 0;
     
     if (force || (isEmpty && !form.processing)) {
       closeCreateTask();
@@ -180,7 +187,9 @@ export function CreateTaskDrawer() {
               issue_type: forcedChildType || data.issue_type,
               assigned_to_user_id: data.assigned_user_ids?.[0] || '',
               assigned_user_ids: (data.assigned_user_ids || []).map(Number),
-              start_on: dayjs().format('YYYY-MM-DD'),
+              start_on: data.start_on
+                ? (data.start_on instanceof Date ? dayjs(data.start_on).format('YYYY-MM-DD') : data.start_on)
+                : dayjs().format('YYYY-MM-DD'),
               due_on: canSetDueDate && data.due_on
                 ? (data.due_on instanceof Date ? dayjs(data.due_on).format('YYYY-MM-DD') : data.due_on)
                 : '',
@@ -324,7 +333,13 @@ export function CreateTaskDrawer() {
             valueFormat="DD MMM YYYY"
             label="Fecha de inicio"
             placeholder="Automática (hoy)"
-            value={form.data.start_on || new Date()}
+            value={
+              form.data.start_on
+                ? form.data.start_on instanceof Date
+                  ? form.data.start_on
+                  : dayjs(form.data.start_on).toDate()
+                : new Date()
+            }
             disabled
             size="sm"
           />
@@ -335,7 +350,13 @@ export function CreateTaskDrawer() {
             minDate={new Date()}
             label="Fecha de finalización"
             placeholder={canSetDueDate ? "Selecciona la fecha" : "Solo el asignado"}
-            value={canSetDueDate ? (form.data.due_on || null) : null}
+            value={
+              canSetDueDate && form.data.due_on
+                ? form.data.due_on instanceof Date
+                  ? form.data.due_on
+                  : dayjs(form.data.due_on).toDate()
+                : null
+            }
             onChange={value => updateValue("due_on", value || "")}
             disabled={!canSetDueDate}
             size="sm"

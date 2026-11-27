@@ -113,7 +113,7 @@ class Task extends Model implements AuditableContract, Sortable
         'priority:id,label,color,order',
         'attachments',
         'parent:id,name,number,issue_type',
-        'children:id,name,number,issue_type,parent_task_id',
+        'children:id,name,number,issue_type,parent_task_id,completed_at,group_id',
     ];
 
     /**
