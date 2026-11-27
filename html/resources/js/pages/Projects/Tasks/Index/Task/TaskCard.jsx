@@ -1,6 +1,9 @@
 import { Label } from '@/components/Label';
 import useTaskDrawerStore from '@/hooks/store/useTaskDrawerStore';
+import useTaskGroupsStore from '@/hooks/store/useTaskGroupsStore';
 import useTasksStore from '@/hooks/store/useTasksStore';
+import { getGroupSelectColorName } from '@/utils/taskGroupColors';
+import translateGroupName from '@/utils/translateGroupName';
 import { isOverdue, isDueSoon } from '@/utils/task';
 import dayjs from 'dayjs';
 import { getInitials } from '@/utils/user';
@@ -10,6 +13,7 @@ import { Link, usePage } from '@inertiajs/react';
 import {
   ActionIcon,
   Avatar,
+  Badge,
   Button,
   Checkbox,
   Group,
@@ -25,12 +29,16 @@ import { IconChevronDown, IconCornerDownRight, IconPlus } from '@tabler/icons-re
 
 export default function TaskCard({ task, index }) {
   const { openEditTask, openCreateTask } = useTaskDrawerStore();
+  const { groups } = useTaskGroupsStore();
   const { findTask, complete } = useTasksStore();
   const { auth: { user } } = usePage().props;
   const isAdmin = Boolean(user?.is_admin || user?.is_super_admin);
   const isDev = Boolean(user?.roles?.includes('developer') || user?.roles?.includes('manager'));
   const canDrag = (isAdmin || isDev) && can('reorder task');
+  const canDragStatus = canDrag || can('reorder task');
   const computedColorScheme = useComputedColorScheme();
+  const currentGroup = groups.find(g => Number(g.id) === Number(task.group_id));
+  const statusColor = getGroupSelectColorName(currentGroup);
 
   const subtasks = (task.children || []).map(c => findTask(c.id) || c);
   const subtasksCount = subtasks.length;
@@ -39,7 +47,7 @@ export default function TaskCard({ task, index }) {
     <Draggable
       draggableId={'task-' + task.id}
       index={index}
-      isDragDisabled={!(isAdmin || isDev)}
+      isDragDisabled={!canDragStatus}
     >
       {(provided, snapshot) => {
         const cardNode = (
@@ -61,7 +69,20 @@ export default function TaskCard({ task, index }) {
               />
             </Tooltip>
           )}
-          <div {...(canDrag ? provided.dragHandleProps : {})}>
+          <div {...(canDragStatus ? provided.dragHandleProps : {})}>
+            {currentGroup && (
+              <Group justify='space-between' mb={4}>
+                <Badge
+                  size='xs'
+                  variant='light'
+                  color={statusColor}
+                  radius='sm'
+                  tt='uppercase'
+                >
+                  {translateGroupName(currentGroup.name)}
+                </Badge>
+              </Group>
+            )}
             <Group
               wrap='nowrap'
               justify='start'

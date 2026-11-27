@@ -294,6 +294,7 @@ class TaskController extends Controller
             ], 403);
         }
 
+
         (new UpdateTask)->update($task, $validated);
 
         return response()->json();
@@ -311,13 +312,6 @@ class TaskController extends Controller
     {
         $this->authorize('reorder', [Task::class, $project]);
 
-        $user = auth()->user();
-        if (! ($user->isAdmin() || $user->isSuperAdmin() || $user->isDevOrAdmin())) {
-            return response()->json([
-                'message' => 'No tienes permisos para reordenar actividades.',
-            ], 403);
-        }
-
         Task::setNewOrder($request->ids);
 
         TaskOrderChanged::dispatch(
@@ -333,6 +327,7 @@ class TaskController extends Controller
     /**
      * Mueve tareas de un grupo a otro (cambio de columna en el Kanban).
      *
+     * Habilitado para admin y developer con permiso de reordenar tareas en el proyecto.
      * Si el grupo destino se llama "Finalizado", marca las tareas como completadas
      * automáticamente. En caso contrario, elimina la fecha de completado.
      *
@@ -342,18 +337,11 @@ class TaskController extends Controller
     {
         $this->authorize('reorder', [Task::class, $project]);
 
-        $user = auth()->user();
+        Task::setNewOrder($request->ids);
+
         $toGroup = TaskGroup::find($request->to_group_id);
         // Las tareas que llegan al grupo "Finalizado" se marcan como completadas automáticamente.
         $isCompletedGroup = $toGroup && $toGroup->name === 'Finalizado';
-
-        if (! ($user->isAdmin() || $user->isSuperAdmin() || $user->isDevOrAdmin())) {
-            return response()->json([
-                'message' => 'No tienes permisos para cambiar el estado de la tarea.',
-            ], 403);
-        }
-
-        Task::setNewOrder($request->ids);
 
         Task::whereIn('id', $request->ids)->update([
             'group_id' => $request->to_group_id,

@@ -5,16 +5,16 @@ import { getGroupSelectColorName } from '@/utils/taskGroupColors';
 import useTaskGroupsStore from '@/hooks/store/useTaskGroupsStore';
 import useTasksStore from '@/hooks/store/useTasksStore';
 
-// Selector de estado de la tarea en la vista Lista (solo editable por admin).
+// Selector de estado de la tarea en la vista Lista (habilitado para admin y developer).
 export default function TaskStatusDropdown({ task }) {
   const { auth: { user } } = usePage().props;
   const isAdmin = Boolean(user?.is_admin || user?.is_super_admin);
   const isDev = Boolean(user?.roles?.includes('developer') || user?.roles?.includes('manager'));
-  const canChangeStatus = isAdmin || isDev;
+  const canChangeStatus = isAdmin || isDev || can('edit task');
   const { groups } = useTaskGroupsStore();
   const { updateTaskProperty } = useTasksStore();
 
-  const currentGroup = groups.find(g => g.id === task.group_id);
+  const currentGroup = groups.find(g => Number(g.id) === Number(task.group_id));
   const currentColor = getGroupSelectColorName(currentGroup);
 
   if (!canChangeStatus) {
@@ -55,6 +55,7 @@ export default function TaskStatusDropdown({ task }) {
         onChange={value => {
           if (!canChangeStatus) return;
           const group = groups.find(g => g.id === Number(value));
+          if (!group) return;
 
           updateTaskProperty(task, 'group_id', group.id, group);
         }}

@@ -16,10 +16,11 @@ export default function TaskRow({ task, index }) {
   const isAdmin = Boolean(user?.is_admin || user?.is_super_admin);
   const isDev = Boolean(user?.roles?.includes('developer') || user?.roles?.includes('manager'));
   const canDrag = (isAdmin || isDev) && can("reorder task");
+  const canDragStatus = canDrag || can("reorder task");
   const { complete } = useTasksStore();
   const { openEditTask } = useTaskDrawerStore();
   return (
-    <Draggable draggableId={"task-" + task.id} index={index} isDragDisabled={!(isAdmin || isDev)}>
+    <Draggable draggableId={"task-" + task.id} index={index} isDragDisabled={!canDragStatus}>
       {(provided, snapshot) => {
         const rowNode = (
           <Flex
@@ -41,12 +42,12 @@ export default function TaskRow({ task, index }) {
             )}
 
             <Group gap="sm" wrap="nowrap" w="100%">
-              <div {...(canDrag ? provided.dragHandleProps : {})}>
+              <div {...(canDragStatus ? provided.dragHandleProps : {})}>
                 <IconGripVertical
                   style={{
                     width: rem(18),
                     height: rem(18),
-                    display: canDrag && !route().params.archived ? "inline" : "none",
+                    display: canDragStatus && !route().params.archived ? "inline" : "none",
                   }}
                   stroke={1.5}
                   className={classes.dragHandle}

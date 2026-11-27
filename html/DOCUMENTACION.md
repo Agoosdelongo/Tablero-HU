@@ -1,119 +1,253 @@
-# Documentación Técnica — TAHU (Tablero HU)
+# Documentación Técnica y Operativa — TAHU (Tablero HU)
 
-Este documento detalla la arquitectura, reglas de negocio, migraciones, rutas, servicios y componentes implementados en **TAHU**.
-
----
-
-## 1. Arquitectura General
-
-El proyecto sigue el patrón **Monolito Moderno (Laravel + Inertia.js + React)**:
-- **Routing y Seguridad:** Laravel (`routes/web.php`, Policies en `app/Policies/`, Middleware `HandleInertiaRequests`).
-- **Lógica de Negocio:** Encapsulada en **Actions** (`app/Actions/Task/`), **Models** (`app/Models/`), **Observers** (`app/Observers/`) y **Commands** (`app/Console/Commands/`).
-- **Estado y UI en Frontend:** React 18 + Zustand (`resources/js/hooks/store/`) + Mantine UI v7 (`postcss-preset-mantine` configurado en `postcss.config.cjs`).
+> **Propósito de este documento:** Que cualquier desarrollador o administrador de sistemas que tome este proyecto en el futuro entienda en pocos minutos **qué hace cada módulo, qué se modificó, por qué se tomó cada decisión y cómo desplegar o diagnosticar en producción sin romper nada**.
 
 ---
 
-## 2. Reglas de Negocio — Módulo de Proyectos y Tareas
+## 1. Visión general (en 2 minutos)
 
-### 2.1 Roles e Identificación de Usuario
-En `App\Http\Middleware\HandleInertiaRequests::share()`, cada respuesta Inertia expone en `auth.user`:
-- `is_admin`: `bool` (`$user->isAdmin()`)
-- `is_super_admin`: `bool` (`$user->isSuperAdmin()`)
-- `roles`: colección de nombres de roles Spatie (`superadmin`, `admin`, `manager`, `developer`, `qa engineer`, `designer`).
-- `permissions`: lista de permisos activos del usuario.
+**TAHU** (*Tablero de Actividades del Hospital Universitario*) es un monolito moderno construido con:
+- **Backend:** PHP 8.2+, Laravel 11, Laravel Sanctum, Spatie Laravel Permission (roles y permisos), OwenIt Auditing, Inertia Laravel.
+- **Frontend:** React 18, Vite 5, Mantine UI v7, Zustand (stores globales), Day.js, Tabler Icons.
+- **Base de datos:** MySQL 8 en producción (`https://siprohu.hospital.uncu.edu.ar`) y SQLite aislado para desarrollo local.
 
-En frontend, el privilegio administrativo se evalúa como:
-```js
-const isAdmin = Boolean(user?.is_admin || user?.is_super_admin);
+Las mejoras y correcciones documentadas aquí cubren **tres grandes bloques**:
+1. **Proyectos y Tareas:** Jerarquía estricta de roles (**Admin / Superadmin** vs **Developer**), bloqueo total de clics/ediciones no permitidas (frontend + backend) y asignación múltiple de responsables (`task_assignees`).
+2. **Tareas Personales:** Vinculación de correo personal de Google Calendar, recordatorios automáticos con hasta **7 días de anticipación**, adjuntos `.ics` estándar y reuniones compartidas con invitados.
+3. **Estabilidad y Producción:** Compatibilidad con proxy inverso HTTPS, WebSockets seguros cuando `BROADCAST_DRIVER=log`, protección de base de datos MySQL, URLs sin doble barra, timeout SMTP y tolerancia a fallos en envíos masivos.
+
+---
+
+## 2. Módulo de Proyectos y Tareas (`admin` vs `developer`)
+
+### 2.1 Cómo funciona el flujo de trabajo
+1. **Asignación (solo Admin / Superadmin):**
+   - El administrador crea la actividad desde `+ Agregar actividad` o `+` en una columna/tarea.
+   - La **Fecha de inicio (`start_on`)** se completa **automáticamente** con la fecha del día (`now()->toDateString()`) y no puede modificarse después.
+   - Puede asignar **una o varias personas** (`assigned_user_ids` → tabla pivote `task_assignees`). Por retrocompatibilidad con vistas heredadas, el primer asignado también se guarda en `tasks.assigned_to_user_id`.
+   - Cada persona recién asignada recibe una notificación (`TaskAssignedNotification`).
+2. **Ejecución (rol `developer` u otros roles no-admin):**
+   - El desarrollador abre la tarea y **todos los campos administrativos están bloqueados sin siquiera responder al clic** (`disabled`, `readOnly`, `tabIndex={-1}`, `pointerEvents: 'none'`, sin desplegables, sin drag & drop, sin check de completar ni archivar).
+   - Si está asignado a la tarea, **únicamente puede**:
+     1. Cargar/modificar la **Fecha de finalización (`due_on`)**.
+     2. Subir **Fotos o comprobantes** (`Dropzone` → `AttachmentController`).
+     3. Escribir en **Comentarios / Discusión** (`Comments.jsx`).
+3. **Protección de autoría (Nombre y Descripción):**
+   - Una vez creada la tarea, únicamente el `admin` o `superadmin` que la creó (`created_by_user_id === user.id`) puede editar el **Nombre** y la **Descripción** (`Task::canEditNameAndDescription()`).
+
+### 2.2 Matriz de permisos efectiva (UI + Backend `HTTP 403`)
+
+| Acción / Campo | Admin / Superadmin | Developer (asignado) | Developer (no asignado) |
+| :--- | :---: | :---: | :---: |
+| Crear tareas / subtareas / columnas | ✅ | ❌ Oculto + `403` | ❌ Oculto + `403` |
+| Editar **Nombre** y **Descripción** | ✅ Solo el creador | 🔒 Sin clic + `403` | 🔒 Sin clic + `403` |
+| **Fecha de inicio (`start_on`)** | 🔒 Automática + `403` | 🔒 Automática + `403` | 🔒 Automática + `403` |
+| **Fecha de finalización (`due_on`)** | ✅ | ✅ **Habilitado** | 🔒 Sin clic + `403` |
+| **Foto / Comprobante (Adjuntos)** | ✅ | ✅ **Habilitado** | 🔒 Oculto + `403` |
+| **Comentarios / Discusión** | ✅ | ✅ **Habilitado** | ✅ Solo lectura / comentarios |
+| Estado, Tipo, Prioridad, Etiquetas | ✅ | 🔒 Sin clic + `403` | 🔒 Sin clic + `403` |
+| Asignados y Suscriptores | ✅ | 🔒 Sin clic + `403` | 🔒 Sin clic + `403` |
+| Drag & Drop (mover / reordenar) | ✅ | ❌ Deshabilitado + `403` | ❌ Deshabilitado + `403` |
+| Completar / Archivar / Restaurar | ✅ | ❌ Deshabilitado + `403` | ❌ Deshabilitado + `403` |
+
+### 2.3 Mapa de archivos del módulo (qué toca cada uno)
+
+#### Backend (`html/app/`)
+- **`Http/Middleware/HandleInertiaRequests.php`**: expone en todas las páginas Inertia `auth.user.is_admin`, `auth.user.is_super_admin`, `roles` y `permissions`.
+- **`Models/User.php`**: define `isSuperAdmin()` (`hasRole('superadmin')`), `isAdmin()` (`hasRole('admin')`) e `isNotAdmin()`.
+- **`Models/Task.php`**:
+  - Relación `assignees()` (`belongsToMany` sobre `task_assignees`).
+  - `canEditNameAndDescription(User $user)`: verifica que sea admin/superadmin y creador de la tarea.
+  - `isAssignedTo(User $user)`: valida pertenencia en `assigned_to_user_id` o `task_assignees`.
+- **`Actions/Task/CreateTask.php`**: fija `start_on` automáticamente, sincroniza `assignees` y dispara notificaciones.
+- **`Actions/Task/UpdateTask.php`**: actualiza campos y sincroniza `assigned_user_ids` notificando solo a los nuevos agregados.
+- **`Http/Controllers/TaskController.php`**: aplica doble blindaje en el servidor (`HTTP 403`) en `store`, `update`, `move`, `reorder`, `reparent`, `complete`, `destroy`, `restore` y `bulkArchive`.
+- **`Http/Controllers/Task/AttachmentController.php`**: permite subir adjuntos únicamente a `admin`/`superadmin` o usuarios asignados a la tarea.
+
+#### Frontend (`html/resources/js/`)
+- **`components/RichTextEditor.jsx`**: editor TipTap con `readOnly` reactivo (`editor.setEditable(!readOnly)`), oculta la barra de herramientas y aplica `pointerEvents: 'none'` + `onMouseDown(preventDefault)` cuando es solo lectura.
+- **`pages/Projects/Tasks/Drawers/EditTaskDrawer.jsx`**: panel lateral de detalle. Bloquea sin clic el check de completar, Nombre, Descripción, Estado, Tipo, Personas asignadas, Fecha de inicio, Etiquetas, Prioridad y Suscriptores para no-admin; mantiene habilitados Fecha de finalización, Fotos/comprobantes (si asignado) y Comentarios.
+- **`pages/Projects/Tasks/Drawers/LabelsDropdown.jsx` y `PriorityDropdown.jsx`**: en modo `disabled` ocultan botones de quitar/desplegar y bloquean clics (`pointerEvents: 'none'`).
+- **`pages/Projects/Tasks/Index/List/Components/TaskStatusDropdown.jsx` y `TaskPriorityDropdown.jsx`**: para no-admin renderizan etiquetas estáticas fijas en lugar de `<Select>` clicables.
+- **`pages/Projects/Tasks/Index/List/Components/TaskDueDateDropdown.jsx`**: habilita el selector de fecha solo si `isAdmin || isAssignedTo`; si no, lo bloquea sin clic con tooltip informativo.
+- **`pages/Projects/Tasks/Index/List/Components/TaskAssigneeDropdown.jsx`**: selector múltiple para admin; vista compacta de avatares de solo lectura para no-admin.
+- **`pages/Projects/Tasks/Index/List/Components/EditableTaskName.jsx`**: muestra el ícono de edición rápida (lápiz) únicamente al admin creador.
+- **`pages/Projects/Tasks/Index/List/TaskRow.jsx` y `HeaderRow.jsx`**: deshabilitan `useDraggable`, ocultan ícono de arrastre, checkboxes de selección masiva, botón `+` de subtarea y menú de archivar para no-admin.
+- **`pages/Projects/Tasks/Index/Task/TaskCard.jsx`, `Task/TaskRow.jsx`, `TaskGroup.jsx` y `BoardView.jsx`**: deshabilitan `Draggable` (`isDragDisabled={!isAdmin}`), ocultan acciones de grupo/tarea, botón de crear columnas y bloquean el checkbox de completado para no-admin.
+
+---
+
+## 3. Módulo de Tareas Personales + Google Calendar + Recordatorios
+
+### 3.1 Cómo funciona de punta a punta
+```text
+1. Usuario guarda su Gmail personal una sola vez (PUT /personal-tasks/google-email)
+        │
+        ▼
+2. Crea o edita una Tarea Personal (POST/PUT /personal-tasks)
+   ├── Si activó "Impactar en Google Calendar al guardar" → abre la plantilla web de Google Calendar
+   └── Envía invitación por correo (SMTP) con archivo adjunto .ics (RFC 5545) al dueño e invitados
+        │
+        ▼
+3. Cron del servidor ejecuta cada minuto: php artisan schedule:run
+        │
+        ▼
+4. Comando personal-task:send-reminders (SendPersonalTaskReminders)
+   ├── Reclama atómicamente cada tarea vencida para enviarla una sola vez (reminder_notified_at)
+   ├── Notifica en campanita (database) + correo (mail) con .ics al dueño (google_calendar_email)
+   └── Envía correo con .ics a cada invitado en shared_emails (aislado en try/catch individual)
 ```
 
-### 2.2 Reglas de Seguridad por Campo (Backend + Frontend)
-Todas las restricciones están duplicadas por seguridad: la UI bloquea los controles y `TaskController::update()`, `TaskController::move()` y `AttachmentController::store()` rechazan con `HTTP 403` cualquier petición que viole estas reglas.
+> **Dato clave para futuros desarrolladores:** Este módulo **NO requiere credenciales OAuth (`GOOGLE_CLIENT_ID` / `GOOGLE_REDIRECT_URI`)**. Esas variables solo existen para el login opcional con Socialite en `routes/auth.php`. La sincronización de Tareas Personales funciona con **SMTP + invitación estándar `.ics` (`METHOD:REQUEST`) + URL directa de Google Calendar**.
 
-1. **Creación de Actividades (`CreateTask` / `CreateTaskDrawer`):**
-   - Solo visible para administradores (`Header.jsx`, `TaskGroup.jsx`, `TaskCard.jsx`, `TaskRow.jsx`).
-   - `start_on` (Fecha de inicio) se establece **automáticamente** con `now()->toDateString()` en `CreateTask::create()`, ignorando manipulaciones del cliente.
-   - `assigned_user_ids` acepta un array de IDs de usuarios, los sincroniza en `task_assignees`, guarda el primero en `tasks.assigned_to_user_id` por retrocompatibilidad y notifica con `TaskAssignedNotification` a todos los asignados (excepto al creador).
-   - `due_on` (Fecha de finalización) solo se guarda si el creador es admin o figura dentro de `assigned_user_ids`.
+### 3.2 Reglas internas destacadas
+- **Anticipaciones permitidas (`PersonalTask::REMINDER_OPTIONS`):** `5, 15, 30, 60, 1440 (1 día), 4320 (3 días), 10080 (7 días)` minutos.
+- **Tareas solo con fecha (sin horario):** `PersonalTask::reminderReferenceTime()` toma las **09:00 AM** (`America/Argentina/Buenos_Aires`) como referencia para calcular recordatorios con días de anticipación.
+- **Enrutamiento de correos (`User::routeNotificationForMail`):** redirige automáticamente las notificaciones de tareas personales a `users.google_calendar_email` si está cargado, sin mezclar con el correo institucional de login.
+- **Archivo `.ics` (`PersonalTask::buildIcsContent`):** genera un evento RFC 5545 con `UID` basado en el dominio real de `APP_URL` (`personal-task-{id}@siprohu.hospital.uncu.edu.ar`), `ORGANIZER` desde `MAIL_FROM_ADDRESS`, todos los `ATTENDEE` (dueño + `shared_emails`) y dos alarmas `VALARM` (`-P7D` y `-PT1H`).
 
-2. **Edición de Nombre y Descripción (`Task::canEditNameAndDescription`):**
-   - Una vez creada la actividad, únicamente el **admin/superadmin que la creó** (`created_by_user_id === user.id`) puede editar `name` y `description`.
-   - En frontend:
-     - `EditTaskDrawer.jsx` coloca `TextInput` en `readOnly + disabled` y `RichTextEditor` en `readOnly`.
-     - `RichTextEditor.jsx` sincroniza dinámicamente `editor.setEditable(!readOnly)` mediante `useEffect` y oculta `<Editor.Toolbar>` en modo lectura.
-     - `EditableTaskName.jsx` oculta el botón de edición inline (lápiz) en la vista Lista.
+### 3.3 Endpoints de Tareas Personales (`html/routes/web.php`)
 
-3. **Fecha de Inicio (`start_on`):**
-   - Inmutable tras la creación (`HTTP 403` en `TaskController::update()` si se intenta modificar).
-
-4. **Fecha de Finalización (`due_on`):**
-   - Habilitada para **quien deba cumplir la tarea** (`Task::isAssignedTo(User $user)` verifica `assigned_to_user_id` y la tabla pivote `task_assignees`) y para administradores.
-   - Aplicado en `EditTaskDrawer.jsx`, `TaskDueDateDropdown.jsx` y `TaskController::update()`.
-
-5. **Estado, Tipo, Prioridad, Etiquetas e Integrantes:**
-   - Campos `group_id`, `issue_type`, `priority_id`, `labels`, `assigned_user_ids`, `assigned_to_user_id` y `subscribed_users` están **restringidos exclusivamente a Administradores**.
-   - `TaskController::move()` también impide que un usuario no-admin arrastre tarjetas entre columnas de estado en el tablero Kanban.
-
-6. **Fotos / Comprobantes (`AttachmentController` + `Dropzone`):**
-   - Habilitado para Administradores y para cualquier usuario asignado a la tarea (`isAdmin || isAssignedTo`).
-   - `config/filesystems.php` define el disco `external` con fallback automático: usa `/tablerohu/imagenes` si existe el directorio del servidor Linux, o `public_path('imagenes')` en desarrollo local.
-
-7. **Comentarios / Discusión (`CommentController` + `Comments.jsx`):**
-   - Habilitado para que el desarrollador comunique avances o cierre de la tarea al administrador.
-   - `Comments.jsx` escucha cambios en `task?.id` (y recibe `key={task.id}` desde `EditTaskDrawer.jsx`) para recargar los comentarios correctamente al cambiar entre tareas.
-
----
-
-## 3. Reglas de Negocio — Módulo de Tareas Personales y Google Calendar
-
-### 3.1 Campos de Base de Datos Agregados
-- **`users.google_calendar_email`** (`string`, nullable): almacena el correo personal de Google vinculado una sola vez desde la pantalla de Tareas Personales.
-- **`personal_tasks.reminder_minutes`** (`unsignedInteger`, nullable): ampliado desde `unsignedTinyInteger` para permitir anticipaciones de hasta varios días (`5, 15, 30, 60, 1440, 4320, 10080` minutos = hasta 7 días antes).
-- **`personal_tasks.shared_emails`** (`text`/JSON, nullable): lista opcional de correos invitados cuando la actividad corresponde a una reunión o tarea compartida.
-
-### 3.2 Enrutamiento de Correos (`User::routeNotificationForMail`)
-Cuando se envía `PersonalTaskReminderNotification` a un `User`, Laravel redirige el correo automáticamente a `users.google_calendar_email` (si fue configurado), sin mezclar ni reenviar copias al correo institucional de inicio de sesión.
-
-### 3.3 Generación de Eventos iCalendar (`.ics`) y Google Calendar
-En `App\Models\PersonalTask`:
-- `reminderReferenceTime()`: si la tarea tiene hora (`scheduled_time`), usa `fecha + hora`; si solo tiene fecha, toma las `09:00` de esa fecha para poder calcular recordatorios de 7 días antes.
-- `buildIcsContent('REQUEST')`: construye un evento RFC 5545 con:
-  - `ORGANIZER`: dirección SMTP configurada en `mail.from.address`.
-  - `ATTENDEE`: correo de Google del dueño + todos los correos en `shared_emails`.
-  - `VALARM`: dos alarmas automáticas (`-P7D` para 7 días antes y `-PT1H` para 1 hora antes).
-- `googleCalendarUrl()`: genera el enlace `https://calendar.google.com/calendar/render?action=TEMPLATE&...` con título, fechas UTC, detalles y parámetro `add` para invitados.
-
-### 3.4 Endpoints de Tareas Personales (`routes/web.php`)
-
-| Método | Ruta | Nombre | Descripción |
+| Método | Ruta | Nombre | Función |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/personal-tasks` | `personal-tasks.index` | Agenda diaria, tareas vencidas, completadas, correo Google y usuarios disponibles |
-| `POST` | `/personal-tasks` | `personal-tasks.store` | Crea la tarea personal y dispara invitación de calendario por correo |
-| `PUT` | `/personal-tasks/{personalTask}` | `personal-tasks.update` | Edita la tarea y reenvía actualización de invitación |
-| `PUT` | `/personal-tasks/google-email` | `personal-tasks.google-email` | Guarda una sola vez `users.google_calendar_email` |
-| `POST` | `/personal-tasks/{personalTask}/send-reminder` | `personal-tasks.send-reminder` | Envía inmediatamente el recordatorio + `.ics` al correo vinculado e invitados |
-| `GET` | `/personal-tasks/{personalTask}/ics` | `personal-tasks.ics` | Descarga el archivo `.ics` RFC 5545 de la tarea |
-
-### 3.5 Automatización en Segundo Plano (`app/Console/Kernel.php`)
-- `personal-task:send-reminders` corre cada minuto (`everyMinute()->withoutOverlapping()`).
-- Busca tareas con `scopeReminderDue()` (no completadas, no notificadas, dentro de la ventana de tolerancia) y envía `PersonalTaskReminderNotification` al dueño y a todos los correos en `shared_emails`.
+| `GET` | `/personal-tasks` | `personal-tasks.index` | Lista agenda del día, vencidas, completadas y correo Google vinculado |
+| `POST` | `/personal-tasks` | `personal-tasks.store` | Crea tarea y envía invitación `.ics` |
+| `PUT` | `/personal-tasks/{personalTask}` | `personal-tasks.update` | Edita tarea y reenvía actualización `.ics` |
+| `PUT` | `/personal-tasks/google-email` | `personal-tasks.google-email` | Guarda/desvincula `users.google_calendar_email` |
+| `POST` | `/personal-tasks/{personalTask}/send-reminder` | `personal-tasks.send-reminder` | Envío manual inmediato de correo + `.ics` (avisa si SMTP falla) |
+| `GET` | `/personal-tasks/{personalTask}/ics` | `personal-tasks.ics` | Descarga directa del archivo `.ics` |
 
 ---
 
-## 4. Migraciones Incorporadas
+## 4. Arreglos de Infraestructura y Producción (por qué se hizo cada uno)
 
-1. `database/migrations/2026_11_18_000000_add_google_calendar_and_extended_reminders.php`
-   - Agrega `users.google_calendar_email`.
-   - Amplía `personal_tasks.reminder_minutes` a `unsignedInteger`.
-   - Agrega `personal_tasks.shared_emails`.
-2. `database/migrations/2026_11_20_000000_create_task_assignees_table.php`
-   - Crea tabla pivote `task_assignees (task_id, user_id)` con clave única compuesta.
-   - Migra automáticamente cualquier asignación previa existente en `tasks.assigned_to_user_id`.
+| Problema detectado | Archivo modificado | Solución aplicada | Beneficio |
+| :--- | :--- | :--- | :--- |
+| Proxy inverso HTTPS no confiado por Laravel | `app/Http/Middleware/TrustProxies.php` | `protected $proxies = '*';` | Laravel reconoce `X-Forwarded-Proto/Host/For`, evitando fallos de `isSecure()`, cookies `Secure` y redirecciones HTTPS. |
+| `window.Echo` fallaba o intentaba conectar sin Pusher | `resources/js/bootstrap.js` y `hooks/useWebSockets.js` | Solo instancia `Echo` si existe `VITE_PUSHER_APP_KEY`; si no, queda `null` y `useWebSockets` no opera. | Cero errores en consola y cero bloqueos *mixed content* cuando `BROADCAST_DRIVER=log`. |
+| Posible cambio accidental a SQLite en producción | `config/database.php` | Solo usa SQLite si `APP_ENV !== 'production'` y existe `database.sqlite`. | En producción siempre respeta `DB_CONNECTION=mysql`. |
+| URLs con doble barra (`//imagenes`) si `APP_URL` termina en `/` | `config/filesystems.php` | `rtrim((string) env('APP_URL'), '/')` en discos `invoices`, `public` y `external`. | Genera siempre URLs limpias y soporta fallback local (`public/imagenes`) vs servidor (`/tablerohu/imagenes`). |
+| Peticiones web colgadas si SMTP no responde | `config/mail.php` | `'timeout' => (int) env('MAIL_TIMEOUT', 15)` | Con `QUEUE_CONNECTION=sync`, un SMTP bloqueado falla en 15s en lugar de colgar el trabajador PHP. |
+| Un correo fallido cortaba todos los recordatorios | `app/Console/Commands/SendPersonalTaskReminders.php` | Bloques `try/catch` independientes por dueño y por invitado. | Un error puntual se loguea en `laravel.log` y el resto de usuarios siguen recibiendo sus avisos. |
+| Falso positivo al fallar envío manual | `PersonalTaskController.php` (`sendReminder`) | Si `$sentTo` queda vacío, devuelve mensaje de error claro (`back()->error(...)`). | El usuario sabe inmediatamente si falló el correo en lugar de creer que se envió. |
+| `UID` genérico en `.ics` | `app/Models/PersonalTask.php` | Usa `parse_url(config('app.url'), PHP_URL_HOST)` en el `UID`. | Mejor compatibilidad y entregabilidad en Gmail / Google Calendar. |
 
 ---
 
-## 5. Buenas Prácticas y Seguridad del Repositorio
+## 5. Migraciones de Base de Datos (100% aditivas)
 
-- `html/.gitignore` excluye archivos sensibles y artefactos pesados: `.env`, `.env.*`, `/vendor/`, `/node_modules/`, `/database/database.sqlite`, `/storage/logs/*.log`, `/public/hot`, `/public/storage`, `/public/imagenes/`.
-- `html/config/mail.php` lee toda configuración SMTP exclusivamente desde variables de entorno (`env(...)`), sin credenciales en el código fuente.
-- `html/postcss.config.cjs` configura `postcss-preset-mantine` y `postcss-simple-vars` para garantizar el compilado correcto de estilos Mantine (`light-dark()`, `rem()`, `@mixin hover`).
+> **Importante:** Las migraciones crean columnas/tablas **de forma permanente en MySQL**. No dependen de caché ni memoria temporal, y no borran ni alteran datos existentes.
+
+1. **`2026_11_18_000000_add_google_calendar_and_extended_reminders.php`**
+   - Agrega `users.google_calendar_email` (`string`, nullable).
+   - Amplía `personal_tasks.reminder_minutes` a `unsignedInteger` (soporta recordatorios en días).
+   - Agrega `personal_tasks.shared_emails` (`text`/JSON, nullable).
+2. **`2026_11_20_000000_create_task_assignees_table.php`**
+   - Crea la tabla pivote `task_assignees (id, task_id, user_id, created_at, updated_at)` con índice único `(task_id, user_id)`.
+   - Copia automáticamente las asignaciones existentes desde `tasks.assigned_to_user_id` usando `insertOrIgnore`.
+
+---
+
+## 6. Guía Operativa de Producción (Runbook seguro)
+
+### 6.1 Entorno del servidor
+- **URL:** `https://siprohu.hospital.uncu.edu.ar`
+- **Ruta del proyecto en el host Linux:** `/datos/tableroHU/html`
+- **Contenedor Docker PHP/Apache:** `tablerohu-ap-1`
+- **Remotos Git en `/datos/tableroHU/html`:**
+  - `origin`: repositorio institucional (`developershu/tableroHU.git`, raíz directa de Laravel).
+  - `mi-repo`: repositorio de desarrollo actualizado (`https://github.com/Agoosdelongo/Tablero-HU.git`, contiene la app dentro de la subcarpeta `html/`).
+
+> **Por qué se usa `git archive mi-repo/main:html ... | tar -x`:** porque en `mi-repo` el proyecto vive en `html/` y en el servidor ya estamos parados dentro de `/datos/tableroHU/html`. Usar `git archive` extrae **solo los archivos de código** en su ruta exacta, sin crear un `html/html/` ni tocar `.env`, `storage/`, `public/imagenes/`, `vendor/` o `node_modules/`.
+
+### 6.2 Procedimiento seguro de actualización (sin comandos destructivos)
+```bash
+cd /datos/tableroHU/html
+
+# 1. Descargar últimos commits de mi-repo (no modifica archivos aún)
+git fetch mi-repo main
+
+# 2. Extraer únicamente código actualizado (no toca .env, storage ni imágenes)
+git archive mi-repo/main:html app config/database.php config/filesystems.php config/mail.php database/migrations resources routes | tar -x
+
+# 3. Compilar assets frontend (si da EACCES en public/build, ver sección 7)
+npm run build
+
+# 4. Verificar si hay migraciones nuevas (solo lectura)
+docker exec tablerohu-ap-1 php artisan migrate:status | tail -n 10
+
+# 5. Si hay alguna migración "Pending", simular primero y luego aplicar interactivamente
+docker exec tablerohu-ap-1 php artisan migrate --pretend
+docker exec -it tablerohu-ap-1 php artisan migrate
+# (escribir "yes" y Enter)
+
+# 6. Refrescar cachés compiladas y asegurar permisos del servidor web
+docker exec tablerohu-ap-1 php artisan optimize:clear
+docker exec tablerohu-ap-1 php artisan config:cache
+docker exec tablerohu-ap-1 php artisan route:cache
+docker exec tablerohu-ap-1 php artisan view:cache
+docker exec tablerohu-ap-1 chown -R www-data:www-data storage bootstrap/cache
+```
+
+### 6.3 Variables clave del `.env` en producción (sin contraseñas reales)
+```dotenv
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://siprohu.hospital.uncu.edu.ar
+
+SESSION_SECURE_COOKIE=true
+SANCTUM_STATEFUL_DOMAINS=siprohu.hospital.uncu.edu.ar
+
+BROADCAST_DRIVER=log
+QUEUE_CONNECTION=sync
+
+# Para envío real de correos/recordatorios (no dejar en "log")
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.tu-servidor.com
+MAIL_PORT=587
+MAIL_USERNAME=correo-remitente@dominio.com
+MAIL_PASSWORD="clave-o-app-password"
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS="correo-remitente@dominio.com"
+MAIL_FROM_NAME="SiproHU - Tablero HU"
+```
+*(Cada vez que se edite `.env` en producción, volver a correr los 4 comandos de caché del paso 6).*
+
+### 6.4 Crontab del host Linux (recordatorios automáticos)
+El contenedor Docker no corre el Scheduler solo. En el host Linux (`crontab -e`) se agrega:
+```cron
+* * * * * /usr/bin/docker exec -u www-data tablerohu-ap-1 php /var/www/html/artisan schedule:run >> /dev/null 2>&1
+```
+Verificación de solo lectura:
+```bash
+docker exec -u www-data tablerohu-ap-1 php artisan schedule:list
+docker exec -u www-data tablerohu-ap-1 php artisan personal-task:send-reminders
+```
+
+### 6.5 Verificación y asignación de roles en producción
+- **Listar usuarios y roles actuales (solo lectura):**
+  ```bash
+  docker exec -u www-data tablerohu-ap-1 php artisan tinker --execute="App\Models\User::with('roles:id,name')->get(['id','name','email'])->each(fn(\$u)=>dump(\$u->id.' | '.\$u->name.' | '.\$u->email.' | '.\$u->getRoleNames()->implode(', ')));"
+  ```
+- **Asignar rol `admin` a un usuario existente:** desde la web iniciando sesión como `superadmin` → menú **Usuarios** → editar usuario → asignar rol `admin`.
+
+---
+
+## 7. Solución rápida de problemas frecuentes
+
+| Síntoma | Causa probable | Cómo verificar / resolver (sin borrar datos) |
+| :--- | :--- | :--- |
+| Pantalla `500 Server Error` tras actualizar código | Quedó una migración en estado `Pending` o un error PHP registrado | Ver error exacto: `tail -n 60 /datos/tableroHU/html/storage/logs/laravel.log` y `docker exec tablerohu-ap-1 php artisan migrate:status \| tail -n 10`. |
+| `EACCES: permission denied, unlink .../public/build/...` al correr `npm run build` | Un build anterior dejó archivos en `public/build/` con dueño `root` o `www-data` | Corregir dueño solo en `public/build`: `sudo chown -R hospital:hospital /datos/tableroHU/html/public/build` y volver a ejecutar `npm run build`. |
+| No llegan los correos de recordatorio | `.env` sigue con `MAIL_MAILER=log`, falta recargar caché, o falta `crontab` | Revisar `config('mail.default')`, verificar `crontab -l` y revisar `storage/logs/laravel.log`. |
+| `Permission denied` al escribir en `storage/logs` o sesiones | Se ejecutó `artisan` como `root` dentro del contenedor | `docker exec tablerohu-ap-1 chown -R www-data:www-data storage bootstrap/cache`. |
+| "Los cambios de caché, ¿se pueden borrar mañana?" | Confusión habitual entre base de datos y caché de Laravel | **No se pierden.** Las tablas y datos viven en MySQL en disco. `config:cache`/`route:cache`/`view:cache` solo aceleran la lectura de archivos `.php` y se regeneran sin pérdida alguna. |
+
+---
+
+## 8. Principios de ética y buenas prácticas adoptados
+
+1. **Nunca exponer secretos:** `.env`, claves SMTP, bases locales (`database.sqlite`) y respaldos (`backups/`, `*.zip`) están excluidos en `.gitignore` y nunca se suben al repositorio.
+2. **Doble validación (Frontend + Backend):** Nunca se confía únicamente en ocultar un botón en React; todas las reglas de rol se validan también en el controlador PHP con `HTTP 403`.
+3. **Despliegues aditivos y reversibles:** No se utilizan comandos destructivos en producción (`migrate:fresh`, `migrate:reset`, `db:wipe`, `git reset --hard`, `rm -rf`). Se inspecciona antes con `--pretend`, `migrate:status` y respaldos puntuales de `.env`.
+4. **Aislamiento de fallos:** Un correo inválido o un servidor SMTP caído no interrumpe la operación del resto de usuarios ni cuelga indefinidamente el servidor web.

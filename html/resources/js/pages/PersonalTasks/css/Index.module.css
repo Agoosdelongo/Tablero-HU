@@ -23,17 +23,30 @@
     border-radius: var(--mantine-radius-md);
     border: rem(1px) solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
     background: light-dark(var(--mantine-color-white), var(--mantine-color-dark-6));
-    cursor: default;
+    cursor: pointer;
+    transition: border-color 0.12s ease, background-color 0.12s ease;
+    user-select: none;
+}
+
+.dateChip:hover {
+    border-color: var(--mantine-primary-color-filled);
+    background: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-5));
 }
 
 .dateChipIcon {
     color: var(--mantine-primary-color-filled);
 }
 
+.miniCalendarBody {
+    display: flex;
+    justify-content: center;
+    padding: rem(10px) rem(8px);
+}
+
 /* ── Layout principal: cronograma + sidebar ─────────────────────── */
 .layout {
     display: grid;
-    grid-template-columns: 1fr 280px;
+    grid-template-columns: 1fr 296px;
     gap: rem(16px);
     align-items: stretch;
 }
